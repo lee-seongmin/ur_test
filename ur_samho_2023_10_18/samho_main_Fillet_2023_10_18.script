@@ -1,5 +1,24 @@
 def samho_main_Fillet_2023_10_18():
-  set_gravity([0.0, 0.0, 9.82])
+  modbus_add_signal("127.0.0.1", 255, 171, 2, "MODBUS_1", False)
+  modbus_set_signal_update_frequency("MODBUS_1", 1)
+  modbus_add_signal("127.0.0.1", 255, 153, 2, "MODBUS_2", False)
+  modbus_set_signal_update_frequency("MODBUS_2", 10)
+  modbus_add_signal("127.0.0.1", 255, 154, 2, "MODBUS_3", False)
+  modbus_set_signal_update_frequency("MODBUS_3", 10)
+  modbus_add_signal("127.0.0.1", 255, 240, 2, "MODBUS_4", False)
+  modbus_set_signal_update_frequency("MODBUS_4", 10)
+  step_count_98ba61fd_7ce8_44f6_bff3_5143d008eee6 = 0.0
+  thread Step_Counter_Thread_eafa4915_b51c_49e2_aeb6_49c02b475471():
+    while (True):
+      step_count_98ba61fd_7ce8_44f6_bff3_5143d008eee6 = step_count_98ba61fd_7ce8_44f6_bff3_5143d008eee6 + 1.0
+      sync()
+    end
+  end
+  run Step_Counter_Thread_eafa4915_b51c_49e2_aeb6_49c02b475471()
+  set_tool_voltage(24)
+  set_tcp(p[-0.20715,-0.003,0.38467,1.2578,0.0098,-2.8767])
+  set_payload(2.4, [-0.085, 0.00191, 0.125])
+  set_safety_mode_transition_hardness(1)
   set_standard_analog_input_domain(0, 1)
   set_standard_analog_input_domain(1, 1)
   set_tool_analog_input_domain(0, 1)
@@ -11,41 +30,18 @@ def samho_main_Fillet_2023_10_18():
   set_runstate_standard_digital_outputs([0])
   set_runstate_standard_digital_output_to_value(0, 1)
   set_runstate_standard_digital_output_to_value(7, 3)
-  step_count_c3da284d_8c38_4948_9d0a_7bbcd1285130 = 0.0
-  thread Step_Counter_Thread_b1fbcd7f_a7e8_4366_aae2_1cd96c806efd():
-    while (True):
-      step_count_c3da284d_8c38_4948_9d0a_7bbcd1285130 = step_count_c3da284d_8c38_4948_9d0a_7bbcd1285130 + 1.0
-      sync()
-    end
-  end
-  run Step_Counter_Thread_b1fbcd7f_a7e8_4366_aae2_1cd96c806efd()
-  set_safety_mode_transition_hardness(1)
-  set_tool_voltage(24)
-  set_tcp(p[-0.20748,-9.0E-4,0.38521,1.2569,0.0099,-2.8767])
-  set_payload(2.4, [-0.085, 0.00191, 0.125])
-  modbus_add_signal("127.0.0.1", 255, 171, 2, "MODBUS_1", False)
-  modbus_set_signal_update_frequency("MODBUS_1", 1)
-  modbus_add_signal("127.0.0.1", 255, 153, 2, "MODBUS_2", False)
-  modbus_set_signal_update_frequency("MODBUS_2", 10)
-  modbus_add_signal("127.0.0.1", 255, 154, 2, "MODBUS_3", False)
-  modbus_set_signal_update_frequency("MODBUS_3", 10)
-  modbus_add_signal("127.0.0.1", 255, 240, 2, "MODBUS_4", False)
-  modbus_set_signal_update_frequency("MODBUS_4", 10)
+  set_gravity([0.0, 0.0, 9.82])
   global A_Touch_trig_l=[False, False, False, False, True, False, False, False, False, False, False]
   global Auto_cur_cell=0
-  global last_wv_line=p[0, 0, 0, 0, 0, 0]
   global Auto_trig=False
   global A_Touch_p=[p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0], p[0.52449, -0.29611, -0.03135, -1.44433, -1.03764, -1.44433], p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0], p[0.5215, -0.2959, 0.14321, -1.44433, -1.03764, -1.44433], p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0]]
-  global last_wv_wp1=p[0, 0, 0, 0, 0, 0]
   global last_pose=p[0, 0, 0, 0, 0, 0]
   global A_Distance_list=[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
   global Auto_total_cell=1
-  global Reset_Trig=False
   global A_Prepos_l=[p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0], p[0.47946, -0.33036, 0.01979, 1.89026, -1.12958, 1.54553], p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0]]
-  global last_z_bottom=0
-  global A_Speed_list=[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  global Reset_Trig=False
   global Auto_W_num=[4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-  global last_tilt_deg=[0, 0, 0]
+  global A_Speed_list=[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
   global Base=p[0.0,0.0,0.0,0.0,0.0,0.0]
   global save_timer=0
   global timer_1=0
@@ -1529,159 +1525,108 @@ def samho_main_Fillet_2023_10_18():
     write_port_register(weld_done_137,1)
     $ 2240 "wv_direction≔1"
     global wv_direction=1
-    $ 2241 "If Auto_W_num[Auto_cur_cell]≥150"
-    if (Auto_W_num[Auto_cur_cell] >= 150):
-      $ 2242 "MoveL"
-      $ 2243 "Direction: Base"
-      global move_thread_flag_2243=0
-      thread move_thread_2243():
-        enter_critical
-        move_thread_flag_2243 = 1
-        local towardsPos=calculate_point_to_move_towards(p[0.0,0.0,0.0,0.0,0.0,0.0], [-1,1,0.0], 0.03)
-        movel(towardsPos, a=0.2, v=0.05)
-        move_thread_flag_2243 = 2
-        exit_critical
-      end
-      move_thread_flag_2243 = 0
-      move_thread_han_2243 = run move_thread_2243()
-      while (True):
-        sleep(1.0E-10)
-        if (move_thread_flag_2243 > 1):
-          join move_thread_han_2243
-          $ 2244 "Until (distance)"
-          break
-        end
-        sync()
-      end
-    else:
-      $ 2245 "ElseIf Auto_W_num[Auto_cur_cell]≥100"
-      if (Auto_W_num[Auto_cur_cell] >= 100):
-        $ 2246 "MoveL"
-        $ 2247 "Direction: Base"
-        global move_thread_flag_2247=0
-        thread move_thread_2247():
-          enter_critical
-          move_thread_flag_2247 = 1
-          local towardsPos=calculate_point_to_move_towards(p[0.0,0.0,0.0,0.0,0.0,0.0], [-1,-1,0.0], 0.03)
-          movel(towardsPos, a=0.2, v=0.05)
-          move_thread_flag_2247 = 2
-          exit_critical
-        end
-        move_thread_flag_2247 = 0
-        move_thread_han_2247 = run move_thread_2247()
-        while (True):
-          sleep(1.0E-10)
-          if (move_thread_flag_2247 > 1):
-            join move_thread_han_2247
-            $ 2248 "Until (distance)"
-            break
-          end
-          sync()
-        end
-      end
-    end
-    $ 2249 "MoveL"
-    $ 2250 "Direction: Tool Z-"
-    global move_thread_flag_2250=0
-    thread move_thread_2250():
+    $ 2241 "MoveL"
+    $ 2242 "Direction: Tool Z-"
+    global move_thread_flag_2242=0
+    thread move_thread_2242():
       enter_critical
-      move_thread_flag_2250 = 1
+      move_thread_flag_2242 = 1
       local towardsPos=calculate_point_to_move_towards(get_forward_kin(), [0.0,0.0,-1.0], 0.03)
       movel(towardsPos, a=1.2, v=0.25)
-      move_thread_flag_2250 = 2
+      move_thread_flag_2242 = 2
       exit_critical
     end
-    move_thread_flag_2250 = 0
-    move_thread_han_2250 = run move_thread_2250()
+    move_thread_flag_2242 = 0
+    move_thread_han_2242 = run move_thread_2242()
     while (True):
       sleep(1.0E-10)
-      if (move_thread_flag_2250 > 1):
-        join move_thread_han_2250
-        $ 2251 "Until (distance)"
+      if (move_thread_flag_2242 > 1):
+        join move_thread_han_2242
+        $ 2243 "Until (distance)"
         break
       end
       sync()
     end
-    $ 2252 "homeing()"
+    $ 2244 "homeing()"
     homeing()
-    $ 2253 "If sludge≟1 or (sludge≟2 and current_path>1)"
+    $ 2245 "If sludge≟1 or (sludge≟2 and current_path>1)"
     if (sludge == 1  or  (sludge == 2  and  current_path>1)):
-      $ 2254 "If  not (Auto_W_num[Auto_cur_cell]%10≟1 or Auto_W_num[Auto_cur_cell]%10≟2 or Auto_W_num[Auto_cur_cell]%10≟3)"
+      $ 2246 "If  not (Auto_W_num[Auto_cur_cell]%10≟1 or Auto_W_num[Auto_cur_cell]%10≟2 or Auto_W_num[Auto_cur_cell]%10≟3)"
       if (  not  (Auto_W_num[Auto_cur_cell]%10 == 1  or  Auto_W_num[Auto_cur_cell]%10 == 2  or  Auto_W_num[Auto_cur_cell]%10 == 3)):
-        $ 2255 "pause_trig≔ True "
+        $ 2247 "pause_trig≔ True "
         global pause_trig=  True  
       end
     end
   end
   def reset_weld_param():
-    $ 2256 "reset_weld_param" "noBreak"
-    $ 2257 "start_num≔225"
+    $ 2248 "reset_weld_param" "noBreak"
+    $ 2249 "start_num≔225"
     global start_num=225
-    $ 2258 "Loop start_num<237"
+    $ 2250 "Loop start_num<237"
     while (start_num<237):
-      $ 2259 "write_port_register(start_num,0)"
+      $ 2251 "write_port_register(start_num,0)"
       write_port_register(start_num,0)
-      $ 2260 "start_num≔start_num+1"
+      $ 2252 "start_num≔start_num+1"
       global start_num=start_num+1
     end
-    $ 2261 "start_num≔240"
+    $ 2253 "start_num≔240"
     global start_num=240
-    $ 2262 "Loop start_num<256"
+    $ 2254 "Loop start_num<256"
     while (start_num<256):
-      $ 2263 "write_port_register(start_num,0)"
+      $ 2255 "write_port_register(start_num,0)"
       write_port_register(start_num,0)
-      $ 2264 "start_num≔start_num+1"
+      $ 2256 "start_num≔start_num+1"
       global start_num=start_num+1
     end
   end
   def touch_sub():
-    $ 2265 "touch_sub" "noBreak"
-    $ 2266 "freedrive"
-    $ 2267 "save_timer: Start"
+    $ 2257 "touch_sub" "noBreak"
+    $ 2258 "freedrive"
+    $ 2259 "save_timer: Start"
     save_timer_is_counting = True
-    $ 2268 "Loop save_tool≟ False  and save_timer≤0.5"
+    $ 2260 "Loop save_tool≟ False  and save_timer≤0.5"
     while (get_tool_digital_in(0) ==   False    and  save_timer <= 0.5):
-      $ 2269 "If save_tool≟ False "
+      $ 2261 "If save_tool≟ False "
       if (get_tool_digital_in(0) ==   False  ):
-        $ 2270 "save_timer≔0"
+        $ 2262 "save_timer≔0"
         global save_timer=0
       end
-      $ 2271 "If freedrive≟ True  and freedrive_trg≟ False "
+      $ 2263 "If freedrive≟ True  and freedrive_trg≟ False "
       if (get_tool_digital_in(1) ==   True    and  freedrive_trg ==   False  ):
-        $ 2272 "'Manual - Freedrive'"
+        $ 2264 "'Manual - Freedrive'"
         # 'Manual - Freedrive'
-        $ 2273 "freedrive_mode()"
+        $ 2265 "freedrive_mode()"
         freedrive_mode()
-        $ 2274 "freedrive_trg≔ True "
+        $ 2266 "freedrive_trg≔ True "
         global freedrive_trg=  True  
       else:
-        $ 2275 "ElseIf freedrive≟ False  and freedrive_trg≟ True "
+        $ 2267 "ElseIf freedrive≟ False  and freedrive_trg≟ True "
         if (get_tool_digital_in(1) ==   False    and  freedrive_trg ==   True  ):
-          $ 2276 "end_freedrive_mode()"
+          $ 2268 "end_freedrive_mode()"
           end_freedrive_mode()
-          $ 2277 "freedrive_trg≔ False "
+          $ 2269 "freedrive_trg≔ False "
           global freedrive_trg=  False  
         end
       end
-      $ 2278 "If lamp_trig≟ False "
+      $ 2270 "If lamp_trig≟ False "
       if (lamp_trig ==   False  ):
-        $ 2279 "lamp_trig≔ True "
+        $ 2271 "lamp_trig≔ True "
         global lamp_trig=  True  
       end
-      $ 2280 "sync()"
+      $ 2272 "sync()"
       sync()
     end
-    $ 2281 "save_timer: Stop"
+    $ 2273 "save_timer: Stop"
     save_timer_is_counting = False
-    $ 2282 "save_timer: Reset"
+    $ 2274 "save_timer: Reset"
     save_timer = 0
-    $ 2283 "write_port_register(touch_done_157,1)"
+    $ 2275 "write_port_register(touch_done_157,1)"
     write_port_register(touch_done_157,1)
-    $ 2284 "Wait read_port_register(touch_done_157)≟0"
+    $ 2276 "Wait read_port_register(touch_done_157)≟0"
     while (not( read_port_register (touch_done_157) == 0)):
       sync()
     end
-    $ 2285 "Wait save_tool=LO"
+    $ 2277 "Wait save_tool=LO"
     while (get_tool_digital_in(0) == True):
       sync()
     end
@@ -1689,8 +1634,8 @@ def samho_main_Fillet_2023_10_18():
   $ 2 "BeforeStart"
   $ 3 "'RobotVersion'"
   # 'RobotVersion'
-  $ 4 "write_port_register(160,46)"
-  write_port_register(160,46)
+  $ 4 "write_port_register(160,45)"
+  write_port_register(160,45)
   $ 5 "Teaching for Touch"
   $ 6 "g_current_p≔get_actual_tcp_pose()"
   global g_current_p= get_actual_tcp_pose ()

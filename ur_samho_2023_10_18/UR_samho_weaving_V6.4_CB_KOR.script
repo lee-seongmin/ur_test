@@ -1,0 +1,3005 @@
+wv_wp1 = p[0,0,0,0,0,0]
+dumy_p = p[0,0,0,0,0,0]
+global background_cal = 0
+global background_pose = [dumy_p,dumy_p,dumy_p]
+global background_ready = 0
+global timer_counter = 0
+global timer_counting = False
+global wcr_counter = 0
+global wcr_counting = False
+global get_wcr = False
+global arc_sens_onoff = 0
+global welding_off_t = 55
+global weld_onoff = False
+global isHicomm = True
+global isTouchWCR = True
+
+thread thread_timer():
+  error_time = 5
+  start_gas_time = 2
+  while (True):
+    if (timer_counting):
+      timer_counter = timer_counter + get_steptime()
+      write_output_float_register(0,timer_counter)
+
+      get_wcr = read_welder(5)
+      weld_onoff = read_welder_control(0)
+
+      welding_off_t = read_port_register(168)
+      if(get_wcr):
+        global arc_sens_onoff = 1
+      else:
+        global arc_sens_onoff = 0
+      end
+      if(get_wcr and welding_off_t == 2 and weld_onoff == True):
+        wcr_counter=0
+      elif(wcr_counter>(error_time+start_gas_time) and welding_off_t == 2 and weld_onoff == True):
+        write_port_register(202,0)
+        write_port_register(149,0)
+        write_welder(0,False)
+        set_standard_digital_out(0,False)
+        write_port_register(142,131)
+        sleep(0.5)
+        halt
+      elif(get_wcr == False and welding_off_t == 2 and weld_onoff == True):
+        wcr_counter = wcr_counter + get_steptime()
+      end
+    end
+    sync()
+  end
+end
+
+def RTDE_init():
+  # timer
+  write_output_float_register(0,0)
+  # WCR IN
+  write_output_float_register(1,0)
+  # Welding Current
+  write_output_float_register(2,0)
+  # Welding Voltage
+  write_output_float_register(3,0)
+  # X offset
+  write_output_float_register(4,0)
+  # Z offset
+  write_output_float_register(5,0)
+  # PLUS Integral
+  write_output_float_register(6,0)
+  # MINUS Integral
+  write_output_float_register(7,0)
+  # Standard_Arc_Current
+  write_output_float_register(8,0)
+  # ALL Integral
+  write_output_float_register(9,0)
+  # x up
+  write_output_float_register(10,0)
+  # x ui
+  write_output_float_register(11,0)
+  # z up
+  write_output_float_register(12,0)
+  # z ui
+  write_output_float_register(13,0)
+  # x
+  write_output_float_register(14,0)
+  # y
+  write_output_float_register(15,0)
+  # z
+  write_output_float_register(16,0)
+  # welding on/off polyscope
+  write_output_float_register(17,0)
+  # touch on/off polyscope
+  write_output_float_register(18,0)
+  # ratio_t
+  write_output_float_register(19,0)
+  # get_wcr polyscope
+  write_output_float_register(20,0)
+  # get_touch polyscope
+  write_output_float_register(21,0)
+  # write_welder
+  write_output_float_register(22,0)
+  # MIDDLE_Integral_org
+  write_output_float_register(23,0)
+  # PLUS Integral_org
+  write_output_float_register(24,0)
+  # MINUS Integral_org
+  write_output_float_register(25,0)
+
+  #init
+  global cycle_number = 0
+  global cycle_done = False
+  global cycle1_plus = 0
+  global cycle1_minus = 0
+  global cycle1_middle = 0
+  global current_to_welding_m = read_port_register(133)
+  global voltage_to_welding_m = read_port_register(134)/10
+  global c_maxcut = current_to_welding_m*1.2
+  global c_mincut = current_to_welding_m*0.8
+  global v_maxcut = voltage_to_welding_m*1.2
+  global v_mincut = voltage_to_welding_m*0.8
+  global Standard_Arc_Current = current_to_welding_m
+  global Standard_Arc_voltage = voltage_to_welding_m
+  global FB_CURRENT_UR = 0
+  global FB_VOLTAGE_UR = 0
+  global FB_CURRENT_UR_org = 0
+  global FB_VOLTAGE_UR_org = 0
+  global one_cycle_p_count = 0
+  global one_cycle_m_count = 0
+  global one_cycle_p_accum = 0
+  global one_cycle_m_accum = 0
+  global one_cycle_p_accum_org = 0
+  global one_cycle_m_accum_org = 0
+  global cal_off_ang_rx = 0
+  global cal_off_ang_ry = 0
+  global Up = 0
+  global Ui = 0
+  global Pi_sum = 0
+  global Up_z = 0
+  global Ui_z = 0
+  global Pi_sum_z = 0
+  global peak_value = 0  
+  global ratio_t = 0  
+  global welding_off_t = 55
+  global program_weld_on = False
+  global next_path_c = False
+  global move_p = [dumy_p,dumy_p,dumy_p]
+  global hicomm = True
+  timer_counter = 0
+  sync()
+end
+
+# get line distance without caring orientation
+def get_line_dist(get_wp1,get_wp2):
+  return sqrt((get_wp2[0]-get_wp1[0])*(get_wp2[0]-get_wp1[0])+(get_wp2[1]-get_wp1[1])*(get_wp2[1]-get_wp1[1])+(get_wp2[2]-get_wp1[2])*(get_wp2[2]-get_wp1[2]))
+end
+
+def plus_minus(num):
+  if(num<0):
+    return -1
+  else:
+    return 1
+  end
+end
+
+def get_feature_plane_xz(p1, p2, p3):
+  
+  # Step 1. Get the direction vectors
+  d12 = [ p2[0]-p1[0], p2[1]-p1[1], p2[2]-p1[2] ]
+  d13 = [ p3[0]-p1[0], p3[1]-p1[1], p3[2]-p1[2] ]
+  
+  # Step 2. Get the direction vector of Z axis by cross product of d12 and d13
+  dy = cross_product(d13, d12)
+  
+  # Step 3. Get the X and Z unit direction vectors by normalizing d12 and dz
+  temp = norm(d12)
+  ux = [ d12[0]/temp, d12[1]/temp, d12[2]/temp ]
+  temp = norm(dy)
+  uy = [ dy[0]/temp, dy[1]/temp, dy[2]/temp ]
+  
+  # Step 4. Get Y unit direction vector by cross product of uz and ux
+  uz = cross_product(ux, uy)
+  
+  # Step 5. Get the rotation matrix from the unit direction vectors
+  rotmat = [ ux[0], ux[1], ux[2], uy[0], uy[1], uy[2], uz[0], uz[1], uz[2] ]
+  
+  # Step 6. Get the rotation vector from the rotation matrix
+  rotvec = rotmat2rotvec(rotmat)
+  
+  # Step 7. Get the feature plane with the origin at p1 and the frame achieved at step 6
+  feature_plane = p[ p1[0], p1[1], p1[2], rotvec[0], rotvec[1], rotvec[2] ]
+  
+  return feature_plane
+end
+
+def get_feature_plane_yz(p1, p2, p3):
+  
+  # Step 1. Get the direction vectors
+  d12 = [ p2[0]-p1[0], p2[1]-p1[1], p2[2]-p1[2] ]
+  d13 = [ p3[0]-p1[0], p3[1]-p1[1], p3[2]-p1[2] ]
+  
+  # Step 2. Get the direction vector of Z axis by cross product of d12 and d13
+  dx = cross_product(d12, d13)
+  
+  # Step 3. Get the X and Z unit direction vectors by normalizing d12 and dz
+  temp = norm(d12)
+  uy = [ d12[0]/temp, d12[1]/temp, d12[2]/temp ]
+  temp = norm(dx)
+  ux = [ dx[0]/temp, dx[1]/temp, dx[2]/temp ]
+  
+  # Step 4. Get Y unit direction vector by cross product of uz and ux
+  uz = cross_product(ux, uy)
+  
+  # Step 5. Get the rotation matrix from the unit direction vectors
+  rotmat = [ ux[0], ux[1], ux[2], uy[0], uy[1], uy[2], uz[0], uz[1], uz[2] ]
+  
+  # Step 6. Get the rotation vector from the rotation matrix
+  rotvec = rotmat2rotvec(rotmat)
+  
+  # Step 7. Get the feature plane with the origin at p1 and the frame achieved at step 6
+  feature_plane = p[ p1[0], p1[1], p1[2], rotvec[0], rotvec[1], rotvec[2] ]
+  
+  return feature_plane
+end
+
+def get_feature_plane_xy(p1, p2, p3):
+  
+  # Step 1. Get the direction vectors
+  d12 = [ p2[0]-p1[0], p2[1]-p1[1], p2[2]-p1[2] ]
+  d13 = [ p3[0]-p1[0], p3[1]-p1[1], p3[2]-p1[2] ]
+  
+  # Step 2. Get the direction vector of Z axis by cross product of d12 and d13
+  dz = cross_product(d12, d13)
+  
+  # Step 3. Get the X and Z unit direction vectors by normalizing d12 and dz
+  temp = norm(d12)
+  ux = [ d12[0]/temp, d12[1]/temp, d12[2]/temp ]
+  temp = norm(dz)
+  uz = [ dz[0]/temp, dz[1]/temp, dz[2]/temp ]
+  
+  # Step 4. Get Y unit direction vector by cross product of uz and ux
+  uy = cross_product(uz, ux)
+  
+  # Step 5. Get the rotation matrix from the unit direction vectors
+  rotmat = [ ux[0], ux[1], ux[2], uy[0], uy[1], uy[2], uz[0], uz[1], uz[2] ]
+  
+  # Step 6. Get the rotation vector from the rotation matrix
+  rotvec = rotmat2rotvec(rotmat)
+  
+  # Step 7. Get the feature plane with the origin at p1 and the frame achieved at step 6
+  feature_plane = p[ p1[0], p1[1], p1[2], rotvec[0], rotvec[1], rotvec[2] ]
+  
+  return feature_plane
+end
+
+#### ur_weaving_rev1 by Henry
+#  x_feature = pose_trans(N_Pose,pose_inv(p[0,0,x,0,0,0])
+def feature_offset(fun_pose,fun_offset,fun_plane=p[0,0,0,0,0,0]):
+  fun_p_feature = pose_trans ( pose_inv (fun_plane), fun_pose)
+  fun_offrot = rotvec2rpy([fun_p_feature[3],fun_p_feature[4],fun_p_feature[5]])
+  fun_offset = p[fun_offset[0],fun_offset[1],fun_offset[2],fun_offrot[0]+fun_offset[3],fun_offrot[1]+fun_offset[4],fun_offrot[2]+fun_offset[5]]
+  fun_offset_p = p[fun_offset[0],fun_offset[1],fun_offset[2],0,0,0]
+  fun_offrpy_rot = rpy2rotvec([fun_offset[3],fun_offset[4],fun_offset[5]])
+  fun_offset_rot = p[0,0,0,fun_offrpy_rot[0],fun_offrpy_rot[1],fun_offrpy_rot[2]]
+  fun_cal_p = pose_trans(fun_plane,pose_trans(fun_offset_p,fun_p_feature))
+  fun_cal_rot = pose_trans(fun_plane,fun_offset_rot)
+  result_cal = p[fun_cal_p[0],fun_cal_p[1],fun_cal_p[2],fun_cal_rot[3],fun_cal_rot[4],fun_cal_rot[5]]
+  return result_cal
+end
+
+## same as changing feature in Move command
+## Set offset into Plane and move position by it 
+def plane_offset(fun_pose,p_offset,fun_plane=p[0,0,0,0,0,0]):
+  fun_p_feature = pose_trans ( pose_inv (fun_plane), fun_pose)
+  fun_plane = pose_trans(fun_plane,p[p_offset[0],p_offset[1],p_offset[2],0,0,0])
+  fun_p_result = pose_trans(pose_trans(fun_plane,p[0,0,0,p_offset[3],p_offset[4],p_offset[5]]),fun_p_feature)
+  return fun_p_result
+end
+
+#  convert from rotation matrix to rotation vector
+####
+def rotmat2rotvec(rotmat):
+
+  # array to matrix
+  r11 = rotmat[0]
+  r21 = rotmat[1]
+  r31 = rotmat[2]
+  r12 = rotmat[3]
+  r22 = rotmat[4]
+  r32 = rotmat[5]
+  r13 = rotmat[6]
+  r23 = rotmat[7]
+  r33 = rotmat[8]
+
+  # rotation matrix to rotation vector
+  theta = acos((r11+r22+r33-1)/2)
+  sth = sin(theta)
+  
+  if ( (theta > d2r(179.99)) or (theta < d2r(-179.99)) ):
+    theta = d2r(180)
+    if (r21 < 0):
+      if (r31 < 0):
+        ux = sqrt((r11+1)/2)
+        uy = -sqrt((r22+1)/2)
+        uz = -sqrt((r33+1)/2)
+      else:
+        ux = sqrt((r11+1)/2)
+        uy = -sqrt((r22+1)/2)
+        uz = sqrt((r33+1)/2)
+      end
+    else:
+      if (r31 < 0):
+        ux = sqrt((r11+1)/2)
+        uy = sqrt((r22+1)/2)
+        uz = -sqrt((r33+1)/2)
+      else:
+        ux = sqrt((r11+1)/2)
+        uy = sqrt((r22+1)/2)
+        uz = sqrt((r33+1)/2)
+      end
+    end
+  else:
+    ux = (r32-r23)/(2*sth)
+    uy = (r13-r31)/(2*sth)
+    uz = (r21-r12)/(2*sth)
+  end
+  
+  rotvec = [(theta*ux),(theta*uy),(theta*uz)]
+
+  return rotvec
+end
+
+# cross product of two vectors u and v
+####
+def cross_product(u, v):
+  
+  u1 = u[0]
+  u2 = u[1]
+  u3 = u[2]
+  v1 = v[0]
+  v2 = v[1]
+  v3 = v[2]
+  
+  s = [ (u2*v3-u3*v2), (u3*v1-u1*v3), (u1*v2-u2*v1) ]
+  
+  return s
+end
+####
+def get_feature_Line(p1, p2):
+  p3 = pose_trans(p1,p[0,0,0.01,0,0,0])
+  d1 = [ p3[0]-p1[0], p3[1]-p1[1], p3[2]-p1[2] ]
+  d2 = [ p2[0]-p1[0], p2[1]-p1[1], p2[2]-p1[2] ]
+  dx = cross_product(d1, d2)
+  temp = norm(d2)
+  uy = [ d2[0]/temp, d2[1]/temp, d2[2]/temp ]
+  temp = norm(dx)
+  ux = [ dx[0]/temp, dx[1]/temp, dx[2]/temp ]
+  uz = cross_product(ux, uy)
+  rotmat = [ ux[0], ux[1], ux[2], uy[0], uy[1], uy[2], uz[0], uz[1], uz[2] ]
+  rotvec = rotmat2rotvec(rotmat)
+  feature_plane = p[ p1[0], p1[1], p1[2], rotvec[0], rotvec[1], rotvec[2] ]
+
+  return feature_plane
+end
+
+def calculate_p(feature, direction, position_distance):
+  local posDir=[direction[0], direction[1], direction[2]]
+  if (norm(posDir) < 1e-6):
+    return get_target_waypoint()
+  end
+  local direction_vector_normalized=posDir
+  local displacement_pose=p[direction_vector_normalized[0] * position_distance,direction_vector_normalized[1] * position_distance,direction_vector_normalized[2] * position_distance,0,0,0]
+  local wanted_displacement_in_base_frame=pose_sub(pose_trans(feature, displacement_pose), feature)
+  return pose_add(get_target_waypoint(), wanted_displacement_in_base_frame)
+end
+
+def direction(feature, direction, position_distance,fun_speed=50,fun_acc=100):
+  global move_flag=0
+  global g_f = feature
+  global g_d= direction
+  global g_pd = position_distance/1000
+  global g_ac = fun_speed/1000
+  global g_sp = fun_acc/1000
+
+  thread fun_thread_direction():
+    enter_critical
+    
+    move_flag = 1
+    local towardsPos=calculate_p(g_f, g_d, g_pd)
+    global tp = towardsPos
+    movel(towardsPos, a=g_ac, v=g_sp)
+    move_flag = 2
+    exit_critical
+  end
+  move_thread_dirr2 = run fun_thread_direction()
+  while (True):
+    sleep(1.0E-10)
+    if (move_flag > 1):
+      kill move_thread_dirr2
+      break
+    end
+    sync()
+  end
+end
+
+def movej_elbwrist(j_p,fun_height=-0.02,fun_speed=0.5,fun_acc=0.5):
+  global g_jp = j_p
+  global g_ac = fun_speed
+  global g_sp = fun_acc
+  global move_flag = 0 
+  g_cp = get_actual_tcp_pose()  
+  if(g_cp[2]<fun_height):
+    move_flag = 1
+    return True
+  end
+  thread fun_thread_elbwirst():
+    enter_critical
+    move_flag = 1
+    movej(g_jp, a=g_ac, v=g_sp)
+    move_flag = 2
+    exit_critical
+  end
+
+  move_thread_direlb = run fun_thread_elbwirst()
+  while(True):
+    g_cp = get_actual_tcp_pose()
+    sync()
+    if (move_flag > 1 or g_cp[2]<fun_height):
+      kill move_thread_direlb
+      break
+    end
+    sync()
+  end
+  if(move_flag!=2):
+    stopj(3)
+    move_flag = 0
+    return True
+  else:
+    return False
+  end
+end
+
+def movel_singu(t_p,fun_speed=0.2,fun_acc=0.4,hard_mode=False):
+  global g_pp = t_p
+  global g_ac = fun_speed
+  global g_sp = fun_acc
+  move_flag = 0   
+  singu_var = singularity(t_p,hard_mode)
+  if(singu_var==True):
+    move_flag = 1
+    return True
+  end
+  thread fun_thread_movelsingu():
+    enter_critical
+    move_flag = 1
+    movel(g_pp, a=g_ac, v=g_sp)
+    move_flag = 2
+    exit_critical
+  end
+
+  move_thread_dirr = run fun_thread_movelsingu()
+  while(True):
+    sleep(1.0E-10)
+    if (move_flag > 1 or singularity(get_actual_tcp_pose(),hard_mode)):
+      kill move_thread_dirr
+      break
+    end
+    sync()
+  end
+  if(move_flag!=2):
+    stopj(3)
+    move_flag = 0
+    return True
+  else:
+    return False
+  end
+end
+
+def direction_singu(feature, direction, position_distance,fun_speed=50,fun_acc=100,hard_mode=False):
+  global move_flag=0
+  global g_f = feature
+  global g_d= direction
+  global g_pd = position_distance/1000
+  global g_ac = fun_speed/1000
+  global g_sp = fun_acc/1000
+  global stepsToRetract = 0
+  singu_var = singularity(get_actual_tcp_pose(),hard_mode)
+  if(singu_var==True):
+    move_flag = 1
+    return True
+  end
+  thread fun_thread_sing():
+    enter_critical
+    move_flag = 1
+    local towardsPos=calculate_p(g_f, g_d, g_pd)
+    global tp = towardsPos
+    movel(towardsPos, a=g_ac, v=g_sp)
+    move_flag = 2
+    exit_critical
+  end
+  thread_han_sing = run fun_thread_sing()
+  while (True):
+    sleep(1.0E-10)
+    if (move_flag > 1 or singularity(get_actual_tcp_pose(),hard_mode)):
+      kill thread_han_sing
+      break
+    end
+    sync()
+  end
+  if(move_flag!=2):
+    stopj(3)
+    move_flag = 0
+    return True
+  else:
+    return False
+  end
+end
+
+def motion_num(m_num = [0,0,0,0,0,0]):
+  VL1_r = 1
+  VL2_r = 2
+  VR1_r = 4
+  VR2_r = 8
+  HOR_r = 16
+  var_i = 0
+  r_val = 0 
+  while(var_i<5):
+    if(m_num[var_i] == 1):
+      r_val = r_val + VL1_r
+    elif(m_num[var_i] == 2):
+      r_val = r_val + VL2_r
+    elif(m_num[var_i] == 3):
+      r_val = r_val + VR1_r
+    elif(m_num[var_i] == 4):
+      r_val = r_val + VR2_r
+    elif(m_num[var_i] == 5):
+      r_val = r_val + HOR_r
+    end
+    var_i = var_i + 1
+  end
+  return r_val
+end
+
+def touch_cal(Num_L,Num_R,Cell_Sel):
+  # INPUT : Num_L - 왼쪽 셀타입 Mod - 171 , Num_R - 오른쪽 셀 타입 Mod - 172 (A,B,C,c,D,d,E,e 중에 어떤 건지), Cell_Sel (팬던트에서 전달하는 어떤 셀을 선택했는지 내용) : Mod - 178 셀 선택 플레그
+  # OUTPUT : A_Touch_trig_l : 각 셀 터치 위치 반환
+
+  # ex. touch_check[1] == True VL1 을 터치 하겠다는 의미
+  # ex 2. touch_check[2] == True VL2 를 터치 하겠다는 의미
+  # ex 3. touch_check[5] == True 2F HOR 왼쪽을 터치하겠다는 의미
+  
+  # 신규 셀 추가 시 
+  # Cell_Sel[5] FLAG  추가 ex. Side_left
+  # 숫자 하나 할당 ex. SIDE_LEFT = 10
+
+  #VL1:1, VL2:2, VR1:3, VR2:4, HOR:5, HOR_ML:6, HOR_R:7, HOR_MR:8, HOR_M:9 VL1_END:10, VL2_END:11, VR1_END:12, VR2_END:13, HOR_2path:14, HOR_3path:15, HOR_4path:16, HOR_2path_CD:17, HOR_3path_CD:18, HOR_4path_CD:19
+  # HOR - 2F 왼쪽, HOR_R - 2F 오른쪽, HOR_MR - 2F 왼쪽 칼라, 2F HOR_MR 오른쪽 칼라
+  #A : 1, B : 2, C : 3, c : 4, D : 5, d :6, E : 7, e : 8
+  Side_left = 10
+  touch_check = [False,False,False,False,False,False,False,False,False,False,False]
+  #touch_left, touch_left2
+  global Cell_t = integer_to_binary_list(Cell_Sel)
+
+  # cell_t[ 0 - cell_select(178) 0 : VL1, 1 : VL2 , 2: VR1 , 3: VR2, 4 : HOR  ]
+  if(Cell_t[0]==True):
+    #touch_left
+    touch_check[1] = True
+  end  
+  if(Cell_t[1]==True):
+    #touch_left2
+    touch_check[2] = True
+  end
+  if(Cell_t[2]==True):
+    #touch_right
+    touch_check[3] = True
+  end  
+  if(Cell_t[3]==True):
+    #touch_right2
+    touch_check[4] = True
+  end
+
+  if(Cell_t[4]==True):
+    #touch_hor is needed for checking
+    #left A or B
+    touch_check[5] = True
+  end
+
+  if(Cell_t[4]==True):
+    #HOR_R:7
+    #right
+    touch_check[7] = True
+  end
+
+  if(Cell_t[4]==True and (Num_L == 3 or Num_L == 4 or Num_L == 5 or Num_L == 6)):
+    #HOR_ML:6
+    #left c,C,D,d
+    touch_check[6] = True
+  elif(Cell_t[4]==True and (Num_R == 3 or Num_R == 4 or Num_R == 5 or Num_R == 6)):
+    #HOR_MR:8
+    #right c,C,D,d
+    touch_check[8] = True
+  end
+
+  if(cell_t[5]==True):
+    
+touch_check[Side_left]= True:
+  end
+  return touch_check
+end
+
+def cpm2mms(cpm_speed):
+  return cpm_speed / 6
+end
+
+def time_diff(until_num):
+  global get_143 = read_port_register(143)
+  get_144 = read_port_register(144)
+  global get_time = time_cal(Auto_W_num,Auto_total_cell,A_Speed_list,A_Distance_list,A_Touch_p,until_num)
+  time_diff = get_143 - get_time  
+  get_144 = get_144 + time_diff
+  # write_port_register(144,get_144)
+  return get_144
+end
+
+def time_cal(scenario_l,t_num,speed_l,distance_l,touch_l,until_num=0):
+  VL1 = 1
+  VL2 = 2
+  VR1 = 3
+  VR2 = 4
+  HOR = 5
+  HOR_ML = 6
+  HOR_R = 7
+  HOR_MR = 8
+  HOR_M = 9
+  w_time = 0
+  t_count = 0
+
+  if(until_num == 0):
+    f_num = t_num
+  else:
+    f_num = until_num
+  end
+
+  while(t_count<f_num):
+    c_scenario = scenario_l[t_count]
+    if(c_scenario==VL1 or c_scenario==VL2 or c_scenario==VR1 or c_scenario==VR2):
+      if(touch_l[c_scenario+9]==p[0,0,0,0,0,0]):
+        w_time = w_time + distance_l[c_scenario]/cpm2mms(speed_l[c_scenario])
+        w_time = w_time + 1.5
+        # w_time = w_time + point_dist(touch_l[c_scenario],first_p_wp)*1000/130*2
+      else:
+        w_time = w_time + point_dist(touch_l[c_scenario],touch_l[c_scenario+9])*1000/cpm2mms(speed_l[c_scenario])
+        w_time = w_time + 1.5
+        # w_time = w_time + point_dist(touch_l[c_scenario],first_p_wp)*1000/130*2
+      end
+    else:
+      w_time = w_time + point_dist(touch_l[HOR],touch_l[HOR_R])*1000/cpm2mms(speed_l[HOR])
+      w_time = w_time + 1.5
+      # w_time = w_time + point_dist(touch_l[c_scenario],first_p_wp)*1000/130*2
+    end
+    t_count = t_count+1
+  end
+  return floor(w_time)
+end
+
+def cell_motion(Touch_Sel,thickness_2f,ext_flag_pend,cell_info_l,cell_info_r):
+# INPUT : Touch_Sel(Cell_l): touch_cal에서 계산된 결과, thickness_2f: 2F 각장 (183), ext_flag_pend: 플래그 (이음 용접, 분할 용접 등이 고려 된다)(179), cell_info_l: 왼쪽 선택 셀(171), cell_info_r: 오른쪽 선택 셀(172)을 참고한다.
+# OUTPUT : Auto_W_num 각 셀의 터치 위치를 바탕으로 내가 이번에 실행할 셀을 순서에 맞게 반환한다.
+
+# 예시 : Auto_W_num == [1,3] -> VL1, VR1 순서로 실행한다.
+# Auto_W_num = [3,1,2] -> VR1 -> VL1 -> VL2
+
+# 신규 셀 추가 시 
+# 숫자 하나 할당 ex. SIDE_LEFT = 10
+# if(Cell_l[SIDE_LEFT]==True):  
+#   return_pose[ex] = SIDE_LEFT
+#   ex = ex + 1
+# end
+
+  ex = 0
+  num_2f = 0
+  global return_pose = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  val_sum = 0 
+  VL1 = 1
+  VL2 = 2
+  VR1 = 3
+  VR2 = 4
+  HOR = 5
+  HOR_ML = 6
+  HOR_R = 7
+  HOR_MR = 8
+  HOR_M = 9
+  side_left = 10
+  HOR_2path = 14
+  HOR_3path = 15
+  HOR_4path = 16
+  HOR_2path_CD = 17
+  HOR_3path_CD = 18
+  HOR_4path_CD = 19
+  CD_check = 0
+  Cell_l = Touch_Sel
+  cell_c = 4
+  cell_d = 6
+
+  # 분할 X
+  HOR_1 = 30
+  # 분할 Left
+  HOR_2_L = 31
+  # 분할 Right
+  HOR_2_R = 32
+  # 분할 X, 2 Path
+  HOR_1_2P = 40
+  HOR_2_L_2P = 41
+  HOR_2_R_2P = 42
+
+  # 분할 X, 3 Path
+  HOR_1_3P = 50
+  HOR_2_R_3P = 52
+  HOR_2_L_3P = 51
+
+  # 분할 X, 3 Path
+  HOR_1_4P = 60
+  HOR_2_L_4P = 61
+  HOR_2_R_4P = 62
+  # EXT 4 이음, EXT 6 분할
+  # 이음 O , 분할 X 
+  HOR_1_CD = 100
+  # 이음 O, 분할 O (101 + 104)
+  HOR_2_CD_connect = 101
+  # 이음 X/O, 분할 O 
+  HOR_3_CD_left = 102
+  # 이음 X, 분할 O (102 + 103 + 104)
+  HOR_3_CD_middle = 103
+  # 이음 X/O, 분할 O
+  HOR_23_CD_right = 104
+  # 이음 X, 분할 X (102 + 105)
+  HOR_2_CD_midr = 105
+
+  HOR_1_CD_2P = 110
+  HOR_2_CD_connect_2P = 111
+  HOR_3_CD_left_2P = 112
+  HOR_3_CD_middle_2P = 113
+  HOR_23_CD_right_2P = 114
+  HOR_2_CD_midr_2P = 115
+
+  HOR_1_CD_3P = 120
+  HOR_2_CD_connect_3P = 121
+  HOR_3_CD_left_3P = 122
+  HOR_3_CD_middle_3P = 123
+  HOR_23_CD_right_3P = 124
+  HOR_2_CD_midr_3P = 125
+
+  HOR_1_CD_4P = 130
+  HOR_2_CD_connect_4P = 131
+  HOR_3_CD_left_4P = 132
+  HOR_3_CD_middle_4P = 133
+  HOR_23_CD_right_4P = 134
+  HOR_2_CD_midr_4P = 135
+
+  RHOR_1_CD = 150
+  RHOR_2_CD_connect = 151
+  RHOR_3_CD_left = 152
+  RHOR_3_CD_middle = 153
+  RHOR_23_CD_right = 154
+  RHOR_2_CD_midr = 155
+
+  RHOR_1_CD_2P = 160
+  RHOR_2_CD_connect_2P = 161
+  RHOR_3_CD_left_2P = 162
+  RHOR_3_CD_middle_2P = 163
+  RHOR_23_CD_right_2P = 164
+  RHOR_2_CD_midr_2P = 165
+
+  RHOR_1_CD_3P = 170
+  RHOR_2_CD_connect_3P = 171
+  RHOR_3_CD_left_3P = 172
+  RHOR_3_CD_middle_3P = 173
+  RHOR_23_CD_right_3P = 174
+  RHOR_2_CD_midr_3P = 175
+
+  RHOR_1_CD_4P = 180
+  RHOR_2_CD_connect_4P = 181
+  RHOR_3_CD_left_4P = 182
+  RHOR_3_CD_middle_4P = 183
+  RHOR_23_CD_right_4P = 184
+  RHOR_2_CD_midr_4P = 185
+
+  l_var = 0
+  l_counter=1
+  multi_path_n = 10
+  if(thickness_2f >=11):
+    l_counter = 4
+  elif(thickness_2f >=9):
+    l_counter = 3
+  elif(thickness_2f >=7):
+    l_counter = 2
+  end
+
+  if(Cell_l[Side_left]==True):
+    return_pose[ex] = Side_left
+    ex = ex+1
+  end
+
+  if(Cell_l[VL2]==True):  
+    return_pose[ex] = VL2
+    ex = ex + 1
+  end
+  if(Cell_l[VR2]==True):  
+    return_pose[ex] = VR2
+    ex = ex + 1
+  end
+
+  if(Cell_l[HOR_ML]==True or Cell_l[HOR_MR]==True ): 
+    if(Cell_l[HOR_MR]==True):
+      MLMR = 50
+    else:
+      MLMR = 0
+    end
+    # ext 4 => 이음, ext 6 = > 분할   
+    while(l_var<l_counter):
+      if(ext_flag_pend[4]==True and (cell_info_l!=cell_c and cell_info_l !=cell_d and cell_info_r!=cell_c and cell_info_r !=cell_d)):
+        if(ext_flag_pend[6]==True):
+          return_pose[ex] = HOR_2_CD_connect + MLMR + (multi_path_n * l_var)
+          ex = ex + 1
+          num_2f = num_2f + 1
+          return_pose[ex] = HOR_23_CD_right + MLMR + (multi_path_n * l_var)
+          ex = ex + 1
+          num_2f = num_2f + 1
+        else:
+          return_pose[ex] = HOR_1_CD + MLMR + (multi_path_n * l_var)
+          ex = ex + 1
+          num_2f = num_2f + 1
+        end
+      else:
+        if(ext_flag_pend[6]==True):
+          return_pose[ex] = HOR_3_CD_left + MLMR + (multi_path_n * l_var)
+          ex = ex + 1
+          num_2f = num_2f + 1
+          return_pose[ex] = HOR_3_CD_middle + MLMR + (multi_path_n * l_var)
+          ex = ex + 1
+          num_2f = num_2f + 1
+          return_pose[ex] = HOR_23_CD_right + MLMR + (multi_path_n * l_var)
+          ex = ex + 1
+          num_2f = num_2f + 1
+        else:
+          return_pose[ex] = HOR_3_CD_left + MLMR + (multi_path_n * l_var)
+          ex = ex + 1
+          num_2f = num_2f + 1
+          return_pose[ex] = HOR_2_CD_midr + MLMR + (multi_path_n * l_var)
+          ex = ex + 1
+          num_2f = num_2f + 1
+        end
+      end
+      l_var = l_var + 1
+    end
+  elif(Cell_l[HOR]==True):
+    while(l_var<l_counter):
+      if(ext_flag_pend[6]==True):
+        return_pose[ex] = HOR_2_L + (multi_path_n * l_var)
+        ex = ex + 1
+        num_2f = num_2f + 1
+        return_pose[ex] = HOR_2_R + (multi_path_n * l_var)
+        ex = ex + 1
+        num_2f = num_2f + 1
+      else:
+        return_pose[ex] = HOR_1 + (multi_path_n * l_var)
+        ex = ex + 1
+        num_2f = num_2f + 1
+      end
+      l_var = l_var + 1
+    end
+  end
+  write_port_register(140,num_2f)
+
+  if(Cell_l[VL1]==True):  
+    return_pose[ex] = VL1
+    ex = ex + 1
+  end
+  if(Cell_l[VR1]==True):  
+    return_pose[ex] = VR1
+    ex = ex + 1
+  end
+  return return_pose
+end
+
+def cell_num(Num):
+# 이번에 할 총 셀의 갯수를 반환한다. (ex. VL1, VR1을 할 경우 Auto_total_cell = 2)
+  var_i = 0
+  while(var_i<14):
+    if(Num[var_i] == 0):
+      return var_i
+    else:
+      var_i = var_i+1
+    end
+  end
+  return var_i
+end
+
+def singularity_inner(target_pose):
+  global angle_margin=4
+  global inner_UR3e=0.18
+  global outer_UR3e=0.45
+  global cj= get_actual_joint_positions()
+  global cp=get_actual_tool_flange_pose()
+  global distance_tool=sqrt(cp[0]*cp[0]+cp[1]*cp[1]) 
+  if (distance_tool<inner_UR3e):
+    global msg="inner singularity"
+    return True
+  end
+  return False
+end
+#singularity check
+
+def singularity(target_pose,hard_mode=False):
+  if(hard_mode):
+    global angle_margin=15
+    global inner_UR3e=0.243
+    global outer_UR3e=0.5
+  else:
+    global angle_margin=8
+    global inner_UR3e=0.18
+    global outer_UR3e=0.56
+  end
+  global cj= get_actual_joint_positions()
+  global cp=get_actual_tool_flange_pose()
+  if (r2d(cj[4])>-angle_margin  and  r2d(cj[4]) <= angle_margin):
+    global msg="wirst singularity"  
+    return True
+  else:
+    if (r2d(cj[4])>-angle_margin+180  and  r2d(cj[4])<angle_margin+180):
+      global msg="wirst singularity"
+      return True
+    end
+  end
+
+  if (r2d(cj[2])>-angle_margin  and  r2d(cj[2]) <= angle_margin):
+    global msg="wirst singularity2"  
+    return True
+  end
+  global distance_tool=sqrt(cp[0]*cp[0]+cp[1]*cp[1])
+  if (distance_tool<inner_UR3e):
+    global msg="inner singularity"
+    return True
+  end
+  global distance_tool=sqrt(cp[0]*cp[0]+cp[1]*cp[1]+cp[2]*cp[2])
+  if (distance_tool>outer_UR3e):
+    global msg="outer singularity"
+    return True
+  end
+  return False
+end
+# 
+
+def contact_fun(feature, direction, position_distance,fun_speed=50,fun_acc=100,back_trig=False,back_dis=0,sens = 2):
+  if(isTouchWCR):
+    get_contact_p = contact_fun_wcr(feature,direction,position_distance,fun_speed,fun_acc,back_trig,back_dis,sens)
+  else:
+    get_contact_p = contact_fun_sens(feature,direction,position_distance,fun_speed,fun_acc,back_trig,back_dis,sens)
+  end
+  return get_contact_p
+end
+
+right_pre_up = [-0.16877919832338506, -0.9831331411944788, -0.8493865172015589, -2.161825958882467, 1.3512022495269775, 1.6723911762237549]
+right_pre_up_p = p[.386895294397, -.308282159155, .411715365657, 1.998643885654, -.290286543852, 1.940165464353]
+right_prep_p = p[.373961727367, -.250422494173, .116476702370, 2.461513812909, -.399817711504, 1.518894068038]
+right_prep = [-0.04209882417787725, -0.8477118651019495, -1.5379555861102503, -2.060195271168844, 1.4439871311187744, 1.8594372272491455]
+left_pre_up = [1.1051501035690308, -1.1542351881610315, -0.8232358137713831, -2.0545104185687464, 1.5833461284637451, 1.8991502523422241]
+left_pre_up_p = p[.380642855235, .363570349938, .382293242723, -1.811667697664, -.627117964573, -1.490809660446]
+left_prep_p = p[.399,.315,.115,-2.0120344559633447,-1.0104257712451312,-1.445571191773495]
+left_prep = [1.071582555770874, -0.8307450453387659, -1.8299058119403284, -1.661370102559225, 1.4603912830352783, 1.720375657081604]
+
+def check_speed():
+  global act_speed = get_actual_tcp_speed()
+  var_i = 0 
+  while(var_i <5):
+    if(act_speed[var_i] >= 2.5):
+      write_port_register(142,113)
+      halt
+    end
+    var_i = var_i + 1
+  end
+end
+
+def home_ym(limit_p):
+  current_tcp = get_tcp_offset()
+  set_tcp(p[0,0,0,current_tcp[3],current_tcp[4],current_tcp[5]])
+
+  get_po = pose_trans(get_actual_tcp_pose(),p[0,0,0,0,d2r(-10),0])
+  if(singularity(get_po,True)==False):
+    ta_j = get_inverse_kin(get_po)
+    home_movej2(ta_j,limit_p)
+  end
+  set_tcp(current_tcp)
+end
+
+def home_movej2(target_j,limit_p2):
+  current_j = get_actual_joint_positions()
+  if(limit_p2[0]>0.40):
+    limit_p2[0] = limit_p2[0] + 0.003
+    spd_j = 95
+  else:
+    limit_p2[0]=0.40
+    spd_j = 150
+  end
+  limit_p2[1] = norm(limit_p2[1]) + 0.003
+  limit_p2[2] = limit_p2[2] + 0.003
+  
+  dist_j = pose_dist(get_forward_kin(target_j),get_actual_tcp_pose())
+  time_j = (dist_j*1000) / spd_j
+  global delta_t = time_j*1000/8
+  global delta_a = 0
+
+  t_c = [r2d(current_j[0]),r2d(current_j[1]),r2d(current_j[2]),r2d(current_j[3]),r2d(current_j[4]),r2d(current_j[5])]
+  t_j = [(r2d(target_j[0])-t_c[0]),(r2d(target_j[1])-t_c[1]),(r2d(target_j[2])-t_c[2]),(r2d(target_j[3])-t_c[3]),(r2d(target_j[4])-t_c[4]),(r2d(target_j[5])-t_c[5])]
+  global l_j = [1,1,1,1,1,1]
+
+  while(delta_a<delta_t and l_j != [0,0,0,0,0,0] ):
+    l_j = [1,1,1,1,1,1]
+
+    var_i = 0
+    while(var_i<6):
+      t_c[var_i] = t_c[var_i] + (t_j[var_i] * 1/delta_t) * l_j[var_i]
+      arrive_j = [d2r(t_c[0]),d2r(t_c[1]),d2r(t_c[2]),d2r(t_c[3]),d2r(t_c[4]),d2r(t_c[5])]
+      arrive_p = get_forward_kin(arrive_j)
+      if(limit_p2[0]<arrive_p[0] or limit_p2[1]<norm(arrive_p[1]) or limit_p2[2]<arrive_p[2] or 0/1000>arrive_p[2]):
+        t_c[var_i] = t_c[var_i] - (t_j[var_i] * 1/delta_t) * l_j[var_i]
+        l_j[var_i] = 0
+      end
+      arrive_j = [d2r(t_c[0]),d2r(t_c[1]),d2r(t_c[2]),d2r(t_c[3]),d2r(t_c[4]),d2r(t_c[5])]
+      arrive_p = get_forward_kin(arrive_j)
+      var_i = var_i+1
+    end
+
+    delta_a = delta_a + 1
+
+    if(l_j!=[0,0,0,0,0,0]):
+      servoj(arrive_j,0,0,0.008,0.1,300)
+    end
+  end
+  stopj(2)
+  if(l_j==[0,0,0,0,0,0]):
+    return False
+  else:
+    return True
+  end
+end
+
+def homeing(home_pos = get_inverse_kin(first_p_wp,qnear = home_pos_j),robot_dist=CELL_ROBOT_DIST,robot_width = CELL_WIDTH,robot_height=-50):
+  current_jp = get_actual_joint_positions()
+  global current_cp = get_actual_tcp_pose()
+  global limit_p = current_cp
+
+  global home_step = 0
+
+  # X - FRONT, BACK
+  if(current_cp[0]>0.05):
+    #FRONT
+    pos_dir_x=-1
+  elif(current_cp[0]<-0.05):
+    #BACK
+    pos_dir_x=1
+  else:
+    pos_dir_x=0
+  end
+
+  if(current_cp[1]>0.05):
+    #LEFT
+    global pos_dir=-1
+  elif(current_cp[1]<-0.05):
+    #RIGHT
+    global pos_dir=1
+  else:
+    global pos_dir=0
+  end
+
+  if ( pose_dist ( current_cp, Packing_pos_wp)<0.03):
+    home_step = 1
+    movej(home_pos,a=0.3,v=0.3)
+    current_jp = get_actual_joint_positions()
+    current_cp = get_actual_tcp_pose()
+    return True
+  end
+
+  if ( pose_dist ( current_cp, first_p_wp)<0.06):
+    home_step = 2
+    movej(home_pos,a=0.45,v=0.45)
+    current_jp = get_actual_joint_positions()
+    current_cp = get_actual_tcp_pose()
+    return True
+  end
+
+  if ( pose_dist ( current_cp, mounting_wp)<0.02):
+    home_step = 3
+    movej(pre_mounting_wp, a=0.45, v=0.45)
+    movej(home_pos,a=0.45,v=0.45)
+    current_jp = get_actual_joint_positions()
+    current_cp = get_actual_tcp_pose()
+    return True
+  end
+
+  home_step=19
+  if ( norm(current_cp[0]) > 360/1000):
+    global get_po = pose_trans(get_actual_tcp_pose(),p[0,0,-40/1000,0,0,0])
+    if(singularity(get_po,hard_mode=True)==False):
+      if(get_inverse_kin_has_solution(get_po)):
+        target_j = get_inverse_kin(get_po)
+        R_home = home_movej2(target_j,limit_p)
+      end
+    else:
+      get_po = pose_trans(get_actual_tcp_pose(),p[0,0,-10/1000,0,0,0])
+      if(get_inverse_kin_has_solution(get_po)):
+        target_j = get_inverse_kin(get_po)
+        R_home = home_movej2(target_j,limit_p)
+      end
+    end
+    global current_cp = get_actual_tcp_pose()
+    limit_p[0] = current_cp[0]
+    limit_p[1] = current_cp[1]
+  end
+  
+  if ( norm(current_cp[0]) > 380/1000):
+    home_step = 4
+    m_dis = 35
+    if ((norm(current_cp[0])-(20/1000)>(440)/1000) and (norm(current_cp[1])-norm(20/1000)>(370)/1000)):
+      m_dis = m_dis + 35
+    end
+    if(pos_dir==-1):
+      global sing_dir = direction_singu(p[0,0,0,0,0,0],[-1,-0.5,0],m_dis,35,35,hard_mode=True)
+    elif(pos_dir==1):
+      global sing_dir = direction_singu(p[0,0,0,0,0,0],[-1,0.5,0],m_dis,35,35,hard_mode=True)
+    end
+    current_cp = get_actual_tcp_pose()
+    current_jp = get_actual_joint_positions()
+    limit_p[0] = current_cp[0]
+    limit_p[1] = current_cp[1]
+  end
+
+  if(norm(current_cp[0])>(360)/1000):
+    home_step=21
+    home_ym(limit_p)
+    current_cp = get_actual_tcp_pose()
+    current_jp = get_actual_joint_positions()
+
+    home_step=22
+    R_home = home_movej2(home_pos,limit_p)
+    current_jp = get_actual_joint_positions()
+    current_cp = get_actual_tcp_pose()
+  else:
+    R_home = False
+  end
+  if(R_home):
+    home_step=12
+    movej(home_pos, a=1.0, v=1.0)
+  else:
+    if (norm(current_cp[2])>499/1000):
+      home_step = 3
+      current_cp[2] = 499/1000
+      movel_singu(current_cp,0.1,0.5,hard_mode=True)
+      current_cp = get_actual_tcp_pose()
+      current_jp = get_actual_joint_positions()
+    end
+
+    if (pos_dir == 1 and current_cp[2]>0.464 and False):
+        home_step=5
+        movej(right_pre_up, a=1.2, v=1.2)
+        movej(right_prep_p, a=1.2, v=1.2)
+        movej(home_pos,a=1.2,v=1.2)
+    elif (pos_dir == -1 and current_cp[2]>0.335 and False):
+        home_step=6
+        movej(left_pre_up, a=1.2, v=1.2)
+        movej(left_prep_p, a=1.2, v=1.2)
+        movej(home_pos,a=1.2,v=1.2)
+    else:
+        global m_r = False
+        if(norm(current_cp[0])>(360)/1000):
+          if(pos_dir==-1):
+            #LEFT
+            home_step=7
+            if(current_jp[3]>d2r(-115)):
+              current_jp[3]=current_jp[3]+d2r(-10)
+              current_jp[4]=current_jp[4]+d2r(0.3)
+              current_jp[1]=current_jp[1]+d2r(0.3)
+              m_r = movej_elbwrist(current_jp,(115+robot_height)/1000,1.2,1.2)
+            end
+            current_jp = get_actual_joint_positions()
+            if(r2d(current_jp[3])>-125):
+              home_step=8
+              current_jp = [current_jp[0],current_jp[1],current_jp[2],d2r(-125),current_jp[4],current_jp[5]]
+              movej_elbwrist(current_jp,(165+robot_height)/1000,1.2,1.2)
+              current_jp = get_actual_joint_positions()
+            end
+            if(r2d(current_jp[2])<-85 and m_r==False):
+              home_step=9
+              current_jp=[current_jp[0],home_pos_j[1],d2r(-85),home_pos_j[3],current_jp[4],current_jp[5]]
+              m_r = movej_elbwrist(current_jp,(115+robot_height)/1000,1.2,1.2)
+              current_jp = get_actual_joint_positions()
+            end
+            current_jp[1] = home_pos_j[1]
+            current_jp[2] = home_pos_j[2] + d2r(4)
+            current_jp[3] = home_pos_j[3] + d2r(4)
+            current_jp[4] = home_pos_j[4]
+          elif(pos_dir==1):
+            #RIGHT
+            home_step=10
+            if(current_jp[4]<d2r(90) and m_r==False):
+              current_jp[3]=current_jp[3]+d2r(-1.5)
+              current_jp[4]=current_jp[4]+d2r(5)
+              current_jp[5]=current_jp[5]+d2r(0.5)
+              current_jp[1]=current_jp[1]+d2r(0.3)
+              m_r = movej_elbwrist(current_jp,(115+robot_height)/1000,1.2,1.2)
+            end
+            current_jp = get_actual_joint_positions()
+            # current_jp[0] = (current_jp[0] + home_pos_j[0])/2
+            current_jp[0] = (current_jp[0] + home_pos_j[0])*1/4
+            current_jp[1] = current_jp[1] + d2r(10)
+            current_jp[2] = (current_jp[2] + home_pos_j[2])*1/4
+            current_jp[3] = (current_jp[3] + home_pos_j[3])*2/3
+            current_jp[4] = (current_jp[4] + home_pos_j[4])*2/3
+          end
+          current_cp = get_actual_tcp_pose()
+          # current_jp=[current_jp[0],home_pos_j[1],home_pos_j[2],home_pos_j[3],home_pos_j[4],current_jp[5]]
+          current_jp=[current_jp[0],current_jp[1],current_jp[2],current_jp[3],current_jp[4],current_jp[5]]
+          if(point_dist(current_cp,get_forward_kin(current_jp))>0.08 and m_r==False):
+            home_step=11
+            m_r = movej_elbwrist(current_jp,(115+robot_height)/1000,1.2,1.2)
+          end
+        end
+        home_step=12
+        if(point_dist(first_p_wp,get_actual_tcp_pose())>0.05):
+          movel_singu(first_p_wp,0.3,0.3,hard_mode=True)
+        end
+        movej(home_pos, a=1.2, v=1.2)
+        home_step=0
+    end
+  end
+
+end
+
+def contact_fun_sens(feature, direction, position_distance,fun_speed=50,fun_acc=100,back_trig=False,back_dis=0,sens = 2):
+  global move_flag=0
+  global g_f = feature
+  global g_d= direction
+  global g_pd = position_distance/1000
+  global g_ac = fun_speed/1000
+  global g_sp = fun_acc/1000
+  global force_T = p[0,0,0,0,0,0]
+  global force_T_all = force()
+  global contact_back_p = p[0,0,0,0,0,0]
+  global touch_begin = get_actual_tcp_pose()
+  global contact_trig = False
+
+  thread fun_thread_contact():
+    enter_critical
+    move_flag = 1
+    local towardsPos=calculate_p(g_f, g_d, g_pd)
+    global tp = towardsPos
+    movel(towardsPos, a=g_ac, v=g_sp)
+    move_flag = 2
+    exit_critical
+  end
+
+  thread tool_contact_thread():
+    while(True):
+      global force_torque = get_tcp_force()
+      force_B = p[ force_torque[0], force_torque[1], force_torque[2], 0, 0, 0 ]
+      torque_B = p[ force_torque[3], force_torque[4], force_torque[5], 0, 0, 0 ]
+      tcp = get_actual_tcp_pose()
+      rotation_BT = p[ 0, 0, 0, tcp[3], tcp[4], tcp[5] ]
+      if(norm(force_T[2])>4):
+        global contact_back_p = get_actual_tcp_pose()
+        contact_trig = True
+      else:
+        contact_trig = False
+      end
+      force_T = pose_trans( pose_inv(rotation_BT), force_B )
+      torque_T = pose_trans( pose_inv(rotation_BT), torque_B )
+      force_torque_T = p[ force_T[0], force_T[1], force_T[2], torque_T[0], torque_T[1], torque_T[2] ]    
+      sync()
+    end
+  end
+  while(is_steady()==False):
+    sync()
+  end
+  zero_ftsensor()
+  move_thread_han5 = run fun_thread_contact()
+  contact_thread_han5 = run tool_contact_thread()
+
+  while (True):
+    if (norm(force_T[2]) > sens and contact_back_p != p[0,0,0,0,0,0]):
+      kill move_thread_han5
+      kill contact_thread_han5
+      global get_contact_p = get_actual_tcp_pose()
+      stopl(3.0)
+      if (back_trig==True):
+        contact_back_p = feature_offset(contact_back_p,p[g_d[0]*back_dis/1000,g_d[1]*back_dis/1000,g_d[2]*back_dis/1000,0,0,0],feature)
+        movel(contact_back_p, a=3, v=0.1)
+      end
+      break
+    end
+    if (point_dist(touch_begin,contact_back_p)>0.15 and contact_back_p != p[0,0,0,0,0,0]):
+      write_port_register(142,121)
+      halt
+    end
+    sync()
+  end
+  return contact_back_p
+end
+
+def contact_fun_wcr(feature, direction, position_distance,fun_speed=50,fun_acc=100,back_trig=False,back_dis=0,sens = 2):
+  global move_flag=0
+  global g_f = feature
+  global g_d= direction
+  global g_pd = position_distance/1000
+  global g_ac = fun_speed/1000
+  global g_sp = fun_acc/1000
+  global contact_back_p = p[0,0,0,0,0,0]
+  global contact_trig = False
+  global touch_begin = get_actual_tcp_pose()
+
+  thread fun_thread_contactw():
+    enter_critical
+    move_flag = 1
+    local towardsPos=calculate_p(g_f, g_d, g_pd)
+    global tp = towardsPos
+    movel(towardsPos, a=g_ac, v=g_sp)
+    move_flag = 2
+    exit_critical
+  end
+  write_welder(4,True)
+  write_port_register(211,0)
+  sleep(0.05)
+  get_stick = read_welder(4)
+  sleep(0.05)
+  move_thread_hanw = run fun_thread_contactw()
+  while (True):
+    global contact_back_p = get_actual_tcp_pose()
+    global get_stick = read_welder(4)
+    global get_stick_out = read_welder_control(4)
+    if(get_stick_out==False):
+      write_welder(4,True)
+    end
+    if(isHicomm):
+      touch_onoff=read_welder(4)
+    else:
+      touch_onoff = get_standard_digital_in(1)
+    end
+    if (touch_onoff):
+      kill move_thread_hanw
+      stopj(8.0)
+      if (back_trig==True):
+        back_p = feature_offset(get_actual_tcp_pose(),p[g_d[0]*back_dis/1000,g_d[1]*back_dis/1000,g_d[2]*back_dis/1000,0,0,0],feature)
+        movel(back_p, a=0.05, v=0.02)
+      end
+      break
+    end
+    if (point_dist(touch_begin,contact_back_p)>0.15 and contact_back_p != p[0,0,0,0,0,0]):
+      write_port_register(142,121)
+      halt
+    end
+    sync()
+  end
+  return contact_back_p
+end
+
+def get_lr(get_pose,get_width,get_cell,get_distance=600,left_par2=True,par_2f=False,touch_dis=30,margin_z=30,side_touch=0,callar=0,par_cell=0,cent_line=p[0,0,0,0,0,0],angle_c=False):
+  margin_dis_3f = 30
+  margin_dis_y = 30
+  margin_dis_z = 55
+  
+  if((par_cell==4 or par_cell==6) and callar > 1):
+    margin_dis_3f = -50
+  else:
+    margin_dis_3f = 20
+  end
+
+  if((par_cell==1 or par_cell==3 or par_cell==4) and par_2f==False):
+    touch_dis = 0
+  elif((par_cell==2 or par_cell==5 or par_cell==6 or par_cell==7) and par_2f==False):
+    margin_z = 0
+  end 
+
+  if(par_cell==3 or par_cell==5 or par_cell==7):
+    margin_cal = 35
+  else:
+    margin_cal = 0
+  end
+  if((par_cell==5 or par_cell==6) and callar > 1):
+    get_cell[1] = 0
+    get_cell[2] = 0
+  end
+
+
+  if(par_2f==False):
+    #3F
+    if(left_par2):
+      return_v = p[(get_distance-margin_dis_y-margin_cal)/1000,(get_width/2-margin_dis_3f+side_touch-callar)/1000,(touch_dis+get_cell[1] + get_cell[0] + margin_z)/1000,get_pose[3],get_pose[4],get_pose[5]]
+    else:
+      return_v = p[(get_distance-margin_dis_y-margin_cal)/1000,-(get_width/2-margin_dis_3f-side_touch-callar)/1000,(touch_dis+get_cell[1] + get_cell[0] + margin_z)/1000,get_pose[3],get_pose[4],get_pose[5]]
+    end
+    if(angle_c==False):
+      return_v = feature_offset(return_v,p[0,0,0,0,d2r((((return_v[2]-30/1000)*1000) / 600) * 5),0],return_v)
+    end
+    return return_v
+  else:
+    #2F
+    if(left_par2):## margin_dis_z -> get_width[1] up, down margin_dis_z -> get_width[2]
+      if(cent_line==p[0,0,0,0,0,0]):
+        return_v = p[(get_distance-margin_dis_y-margin_cal)/1000,(-get_cell[1]+(get_width/2)-touch_dis+side_touch-callar)/1000,(margin_z + get_cell[0])/1000,get_pose[3],get_pose[4],get_pose[5]]
+      else:
+        return_v = p[(get_distance-margin_dis_y-margin_cal)/1000,0,(margin_z + get_cell[0])/1000,get_pose[3],get_pose[4],get_pose[5]]
+        return_v = feature_offset(return_v,p[0,(-get_cell[1]+(get_width/2)-touch_dis+side_touch-callar)/1000,0,0,0,0],cent_line)
+      end
+    else:
+      if(cent_line==p[0,0,0,0,0,0]):
+        return_v = p[(get_distance-margin_dis_y-margin_cal)/1000,-(-get_cell[2]+(get_width/2)-touch_dis-side_touch-callar)/1000,(margin_z + get_cell[0])/1000,get_pose[3],get_pose[4],get_pose[5]]
+      else:
+        return_v = p[(get_distance-margin_dis_y-margin_cal)/1000,0,(margin_z + get_cell[0])/1000,get_pose[3],get_pose[4],get_pose[5]]
+        return_v = feature_offset(return_v,p[0,-(-get_cell[2]+(get_width/2)-touch_dis-side_touch-callar)/1000,0,0,0,0],cent_line)
+      end
+    end
+    if(angle_c==False):
+      r_v = pose_trans(return_v,p[0,0,0,0,0,d2r(-90)])
+      return_v = feature_offset(return_v,p[0,0,0,d2r((return_v[1]*1000 / 500)*0.25) * 25,0,0],r_v)
+    end
+    return return_v
+  end
+end
+
+def side_apply(apply_p,cent_line,side_touch):
+  offset_v = p[0,side_touch/1000,0,0,0,0]
+  if(cent_line==p[0,0,0,0,0,0]):
+    return_v = pose_add(apply_p,offset_v)
+  else:
+    return_v = feature_offset(apply_p,offset_v,cent_line)
+  end
+  return return_v
+end
+
+def touch_angle_2f(left_dir = True,angle_get_up = [0,0,0],angle_get_down = [0,0,0]):
+  if(left_dir):
+    if(angle_get_up == [0,0,0]):
+      touch_angle_rpy_2f_up = [-180,-55,30]
+      touch_angle_rpy_2f_down = [-180,-50,30]
+    else:
+      touch_angle_rpy_2f_up = angle_get_up
+      touch_angle_rpy_2f_down = angle_get_down
+    end
+    touch_angle_rot_2f_up = rpy2rotvec([d2r(touch_angle_rpy_2f_up[0]),d2r(touch_angle_rpy_2f_up[1]),d2r(touch_angle_rpy_2f_up[2])])
+    touch_angle_rot_2f_down = rpy2rotvec([d2r(touch_angle_rpy_2f_down[0]),d2r(touch_angle_rpy_2f_down[1]),d2r(touch_angle_rpy_2f_down[2])])
+  else:
+    if(angle_get_down == [0,0,0]):
+      touch_angle_rpy_2f_up = [-180,-55,-30]
+      touch_angle_rpy_2f_down = [-180,-50,-30]
+    else:
+      touch_angle_rpy_2f_up = angle_get_up
+      touch_angle_rpy_2f_down = angle_get_down
+    end
+    touch_angle_rot_2f_up = rpy2rotvec([d2r(touch_angle_rpy_2f_up[0]),d2r(touch_angle_rpy_2f_up[1]),d2r(touch_angle_rpy_2f_up[2])])
+    touch_angle_rot_2f_down = rpy2rotvec([d2r(touch_angle_rpy_2f_down[0]),d2r(touch_angle_rpy_2f_down[1]),d2r(touch_angle_rpy_2f_down[2])])
+  end
+
+  touch_angle_rot = [touch_angle_rot_2f_up[0],touch_angle_rot_2f_up[1],touch_angle_rot_2f_up[2],touch_angle_rot_2f_down[0],touch_angle_rot_2f_down[1],touch_angle_rot_2f_down[2]]
+  return touch_angle_rot
+end
+
+#degree ,modify
+def touch_fun_2f(start_pose,start_pose_2,left_dir = True,touch_sens=2,bottom_pose=p[0,0,0,0,0,0]):
+  x_dis = 20
+  next_distance = 20
+
+  get_touch_angle = touch_angle_2f(left_dir)
+  start_pose_2 = p[start_pose[0],start_pose[1],start_pose[2],start_pose[3],start_pose[4],start_pose[5]]
+
+  if(left_dir):
+    l_dir = -1
+  else:
+    l_dir = +1
+  end
+  while(not(is_steady())):
+    sync()
+  end
+  write_port_register(211,0)
+  get_stick = read_welder(4)
+  if(get_stick==False):
+    write_welder(4,True)
+  end
+  sleep(0.1)
+  global get_y_1=contact_fun(p[0,0,0,0,0,0],[1,0,0],10000,15,15,  False  ,0,touch_sens)
+  direction(p[0,0,0,0,0,0],[-0.5,0,0],x_dis,180,200)
+  direction(p[0,0,0,0,0,0],[0,0,-1],x_dis,180,200)
+  global get_y_2=contact_fun(p[0,0,0,0,0,0],[1,0,0],10000,15,15,  False  ,0,touch_sens)
+  direction(p[0,0,0,0,0,0],[-1,0,0],next_distance,180,200)
+
+  g_cp = get_actual_tcp_pose()
+  g_cp = p[g_cp[0],g_cp[1],g_cp[2],start_pose_2[3],start_pose_2[4],start_pose_2[5]]
+  movel(g_cp,a= 0.8,v=0.4)
+
+  global get_z_2=contact_fun(p[0,0,0,0,0,0],[0,0,-1],10000,15,15,  False  ,0,touch_sens)
+  direction(p[0,0,0,0,0,0],[0,0,0.5],x_dis,180,200)
+  direction(p[0,0,0,0,0,0],[-1,0,0],x_dis,180,200)
+  global get_z_1=contact_fun(p[0,0,0,0,0,0],[0,0,-1],10000,15,15,  False  ,0,touch_sens)
+  direction(p[0,0,0,0,0,0],[0,0,1],30,180,200)
+  write_welder(4,False)
+
+  result_p = touch_4p_get_middle(get_z_1,get_z_2,get_y_1,get_y_2,left_dir,bottom_pose,True)
+
+  return result_p
+end
+
+def touch_fun2(start_pose,left_dir = True,touch_sens=2,par_CD=0,bottom_pose=p[0,0,0,0,0,0]):
+  #3F 터치 함수
+  for_cd = 1
+  if(par_CD==1):
+    x_dis = 2.2
+    next_distance = 5.5
+    for_cd = 4
+  else:
+    x_dis = 20
+    next_distance = 20
+  end
+  if(left_dir):
+    l_dir = -1
+  else:
+    l_dir = +1
+  end
+  while(not(is_steady())):
+    sync()
+  end
+  write_port_register(211,0)
+  get_stick = read_welder(4)
+  if(get_stick==False):
+    write_welder(4,True)
+  end
+  sleep(0.1)
+  get_y_1=contact_fun(p[0,0,0,0,0,0],[1,0,0],10000,15,15,  False  ,0,touch_sens)
+  direction(p[0,0,0,0,0,0],[-0.5*for_cd,0,0],x_dis,180,200)
+  direction(p[0,0,0,0,0,0],[0,1 * l_dir*for_cd,0],x_dis,180,200)
+  get_y_2=contact_fun(p[0,0,0,0,0,0],[1,0,0],10000,15,15,  False  ,0,touch_sens)
+  direction(p[0,0,0,0,0,0],[-1,0,0],next_distance,180,200)
+
+  get_z_2=contact_fun(p[0,0,0,0,0,0],[0,-1 * l_dir,0],10000,15,15,  False  ,0,touch_sens)
+  direction(p[0,0,0,0,0,0],[0,0.5 * l_dir*for_cd,0],x_dis,180,200)
+  direction(p[0,0,0,0,0,0],[-1,0,0],x_dis,180,200)
+  get_z_1=contact_fun(p[0,0,0,0,0,0],[0,-1 * l_dir,0],10000,15,15,  False  ,0,touch_sens)  
+  direction(p[0,0,0,0,0,0],[0,1 * l_dir,0],x_dis,180,200)
+  write_welder(4,False)
+
+  if(left_dir):
+    result_p = touch_4p_get_middle(get_y_2,get_y_1,get_z_1,get_z_2,left_dir,bottom_pose)
+  else:
+    result_p = touch_4p_get_middle(get_z_1,get_z_2,get_y_2,get_y_1,left_dir,bottom_pose)
+  end
+
+  return result_p
+end
+
+def touch_4point(get_wpx1,get_wpx2,get_wpy1):
+  get_wpx2[2] = get_wpx1[2]
+  get_wpy1[2] = get_wpx1[2]
+  global feature_right2left = get_feature_Line(get_wpx1,get_wpx2)
+
+  a_p1 = get_wpx1
+  a_p2 = feature_offset(get_wpx1,p[0,0.02,0,0,0,0],feature_right2left)
+  a_p3 = pose_add(get_wpx1,p[0,0,0.02,0,0,0])
+  global plane_p = get_feature_plane_xz(a_p1,a_p2,a_p3)
+
+  global get_r1 = get_feature_pose(get_wpy1,plane_p)
+  global cent_p = feature_offset(plane_p,p[get_r1[0],0,0,0,0,0] ,plane_p)
+
+  return cent_p
+end
+
+def touch_xyz_get_middle(get_wpx1,get_wpx2,get_wpy1,get_wpz1):
+  get_wpx1[2] = get_wpz1[2]
+  get_wpx2[2] = get_wpz1[2]
+  get_wpy1[2] = get_wpz1[2]
+
+  global feature_right2left = get_feature_Line(get_wpx1,get_wpx2)
+
+  a_p1 = get_wpx1
+  a_p2 = feature_offset(get_wpx1,p[0,0.02,0,0,0,0],feature_right2left)
+  a_p3 = pose_add(get_wpx1,p[0,0,0.02,0,0,0])
+  global plane_p = get_feature_plane_xz(a_p1,a_p2,a_p3)
+
+  get_r1 = get_feature_pose(get_wpy1,plane_p)
+  cent_p = feature_offset(plane_p,p[get_r1[0],0,0,0,0,0] ,plane_p)
+
+  get_r_o = feature_offset(cent_p,p[-0.02,0,0,0,0,0],plane_p)
+  get_l_o = feature_offset(cent_p,p[0,0.02,0,0,0,0],plane_p)
+
+  middle_lr = interpolate_pose(get_r_o,get_l_o,0.2)
+  cent_p[2] = middle_lr[2]
+
+  plane_test = get_feature_plane_yz(middle_lr,get_l_o,cent_p)
+  # global yy_dir = get_feature_Line(middle_lr,get_l_o)
+  global zz_dir = get_feature_Line(cent_p,middle_lr)
+
+  g_x_dir = pose_add(middle_lr,p[0,0,0.02,0,0,0])  
+  # g_y_dir = feature_offset(middle_lr,p[0,0.02,0,0,0,0],plane_test)
+  # g_y_dir = feature_offset(middle_lr,p[0,-0.02,0,0,0,0],yy_dir)
+
+  # g_z_dir = feature_offset(middle_lr,p[0,0,0.02,0,0,0],plane_test)
+  g_z_dir = feature_offset(middle_lr,p[0,-0.02,0,0,0,0],zz_dir)
+
+  g_z_dir = p[g_z_dir[0],g_z_dir[1],g_z_dir[2],get_wpx1[3],get_wpx1[4],get_wpx1[5]]
+
+  # global final_feature = get_feature_plane_yz(middle_lr,g_y_dir,g_z_dir)
+  global final_feature = get_feature_plane_xz(middle_lr,g_x_dir,g_z_dir)
+
+  get_result = p[cent_p[0],cent_p[1],cent_p[2],final_feature[3],final_feature[4],final_feature[5]]
+
+  # wp_test = p[cent_p[0],cent_p[1],cent_p[2],get_wpx1[3],get_wpx1[4],get_wpx1[5]]
+  # get_result = feature_offset(get_result,p[0,0,0,d2r(-15),d2r(-45),0],get_result)
+  # movel(get_result)
+  return get_result
+end
+
+def touch_4p_get_middle(get_wpy1,get_wpy2,get_wpz1,get_wpz2,left_dir,bottom_pose=p[0,0,0,0,0,0],f2_par=False):
+  feature_right = get_feature_Line(get_wpy1,get_wpy2)
+  feature_left = get_feature_Line(get_wpz1,get_wpz2)
+
+  f_gap1 = feature_offset(get_wpz1,p[0,1/1000,0,0,0,0],feature_left)
+  f_gap2 = feature_offset(get_wpz1,p[0,2/1000,0,0,0,0],feature_left)
+  gap_r1 = get_feature_pose(f_gap1, feature_right)
+  gap_r2 = get_feature_pose(f_gap2, feature_right)
+  test13 = gap_r1[0]/(gap_r1[0] - gap_r2[0])
+
+  cent_p = feature_offset(get_wpz1,p[0,(1+test13)/1000,0,0,0,0],feature_left)
+
+  # get_x_p = get_feature_pose(get_wpz1, feature_right)
+  # cent_p = feature_offset(get_wpz1,p[0,-get_x_p,0,0,0,0],feature_left)
+  
+  cent_p = p[cent_p[0],cent_p[1],cent_p[2],get_wpy1[3],get_wpy1[4],get_wpy1[5]]
+
+  get_r_o = feature_offset(cent_p,p[0,-0.02,0,0,0,0],feature_right)
+  get_l_o = feature_offset(cent_p,p[0,-0.02,0,0,0,0],feature_left)
+
+  middle_lr = interpolate_pose(get_r_o,get_l_o,0.5)
+  
+  yy_dir = get_feature_Line(middle_lr,get_l_o)
+  zz_dir = get_feature_Line(cent_p,middle_lr)
+
+  g_y_dir = feature_offset(middle_lr,p[0,-point_dist(middle_lr,cent_p),0,0,0,0],yy_dir)
+  g_z_dir = feature_offset(middle_lr,p[0,-point_dist(middle_lr,cent_p),0,0,0,0],zz_dir)
+
+  final_feature = get_feature_plane_yz(middle_lr,g_y_dir,g_z_dir)
+  if(False):
+    cent_p[2] = bottom_pose[2]
+  end
+  get_result = p[cent_p[0],cent_p[1],cent_p[2],final_feature[3],final_feature[4],final_feature[5]]
+
+  #movel(get_result)
+
+  return get_result
+end
+
+def get_feature_pose(fun_pose,fun_plane=p[0,0,0,0,0,0]):
+  fun_p_feature = pose_trans ( pose_inv (fun_plane), fun_pose)
+  return fun_p_feature
+end
+
+
+def get_base_pose(fun_p_feature,fun_plane=p[0,0,0,0,0,0]):
+  fun_pose = pose_trans ( fun_plane, fun_p_feature)
+  return fun_pose
+end
+
+def set_pos_xyz(get_pos_h=p[0,0,0,0,0,0],set_pos_h=[0,0,0]):
+  if(set_pos_h[0] != 0):
+    get_pos_h[0] = set_pos_h[0]
+  end
+  if(set_pos_h[1] != 0):
+    get_pos_h[1] = set_pos_h[1]
+  end
+  if(set_pos_h[2] != 0):
+    get_pos_h[2] = set_pos_h[2]
+  end
+  return get_pos_h
+end
+
+def set_rot_rpy_deg(get_pos_h=p[0,0,0,0,0,0],set_rot_h=[0,0,0]):
+  cal_p_rpy = rotvec2rpy([get_pos_h[3],get_pos_h[4],get_pos_h[5]])
+  if(set_rot_h[0] != 0):
+    cal_p_rpy[0] = d2r(set_rot_h[0])
+  end
+  if(set_rot_h[1] != 0):
+    cal_p_rpy[1] = d2r(set_rot_h[1])
+  end
+  if(set_rot_h[2] != 0):
+    cal_p_rpy[2] = d2r(set_rot_h[2])
+  end
+  cal_p = rpy2rotvec(cal_p_rpy)
+  get_pos_h[3] = cal_p[0] 
+  get_pos_h[4] = cal_p[1] 
+  get_pos_h[5] = cal_p[2]
+  return get_pos_h 
+end
+
+
+thread CalThread():
+  while (True):
+    FB_CURRENT_UR = get_standard_analog_in(1)*100
+    #FB_CURRENT_UR = get_standard_analog_in(1)*125
+    FB_VOLTAGE_UR = get_standard_analog_in(0)*8
+    
+    FB_CURRENT_UR_org = FB_CURRENT_UR
+    FB_VOLTAGE_UR_org = FB_VOLTAGE_UR
+
+    write_output_float_register(2,FB_CURRENT_UR)
+    write_output_float_register(3,FB_VOLTAGE_UR)
+    write_port_register(131,FB_CURRENT_UR)
+    write_port_register(132,FB_VOLTAGE_UR*10)
+
+    if(FB_CURRENT_UR>=c_maxcut):
+      FB_CURRENT_UR = c_maxcut
+    elif(FB_CURRENT_UR<=c_mincut):
+      FB_CURRENT_UR = c_mincut
+    end
+
+    if(FB_CURRENT_UR>30):
+      if(sin_dir==-1):
+        if(peak_value==100):
+          one_cycle_p_count = one_cycle_p_count + 1
+          one_cycle_p_accum = one_cycle_p_accum + FB_CURRENT_UR
+          one_cycle_p_accum_org = one_cycle_p_accum_org + FB_CURRENT_UR_org
+        end
+      else:
+        if(peak_value==100):
+          one_cycle_m_count = one_cycle_m_count + 1
+          one_cycle_m_accum = one_cycle_m_accum + FB_CURRENT_UR
+          one_cycle_m_accum_org = one_cycle_m_accum_org + FB_CURRENT_UR_org
+        end
+      end
+    end
+
+    GCP = get_feature_pose(get_actual_tcp_pose(),wv_Line_Feature2)
+    write_output_float_register(14,GCP[0]*1000)
+    write_output_float_register(15,GCP[1]*1000)
+    write_output_float_register(16,GCP[2]*1000)
+
+    GJP = get_actual_joint_positions()
+
+    # write_output_float_register(20,r2d(GJP[0])*10)
+    # write_output_float_register(21,r2d(GJP[1])*10)
+    # write_output_float_register(22,r2d(GJP[2])*10)
+    # write_output_float_register(23,r2d(GJP[3])*10)
+    # write_output_float_register(24,r2d(GJP[4])*10)
+    # write_output_float_register(25,r2d(GJP[5])*10)
+
+
+    # if(get_wcr):
+    #   write_output_float_register(20,1)
+    # else:
+    #   write_output_float_register(20,0)
+    # end
+
+    # write_output_float_register(21,read_port_register(201))
+    sleep(0.004) 
+  end
+end
+
+thread diff_Thread():
+  while (True):
+    if(background_cal==1):
+      background_cal = 0
+      if(th_arc_sen[0]==1):
+        if(counter_average_num == squash_cycle * counter_average*2 and squash_cycle!=0):
+          counter_average_num = 0
+          if(th_ext_fun[2]==1):
+            #squash
+            squash_cycle = 0
+            w_voltage = th_ext_fun[0] #org vol
+            w_current = th_ext_fun[1] #org cur
+            set_current_voltage(w_current,w_voltage)
+            th_wv_weldpar[4] = wving_amplitude_bak
+            th_wv_weldpar[1] = cir_speed_org_bak
+            if(th_par_2f):
+               global wv_system_speed = calculate_2f(th_wv_weldpar[4],th_wv_wp1,th_wv_wp2,th_wv_weldpar[1],th_wv_weldpar[3],th_wving_delay,th_wving_crater)
+            else:
+              global wv_system_speed = calculate_3f(th_wv_weldpar[4],th_wv_wp1,th_wv_wp2,th_wv_weldpar[1],th_wv_weldpar[3],th_wving_delay)
+              x_radius = x_radius / 1000
+            end
+            global y_radius = y_radius / 1000
+            global y_radius_bak = y_radius
+          end
+        end
+        if(counter_average_num == (waste_cycle + squash_cycle)*counter_average*2 and waste_cycle != 0):
+          write_output_float_register(19,100)
+          counter_average_num = counter_average_num - waste_cycle
+          waste_cycle = 0
+          squash_cycle = 0
+          one_cycle_p_count = 0
+          one_cycle_m_count = 0
+          one_cycle_p_accum = 0
+          one_cycle_m_accum = 0
+          one_cycle_p_accum_org = 0
+          one_cycle_m_accum_org = 0
+          counter_average_num = 0
+        end
+        if((counter_average_num >= (counter_average*2) + ((waste_cycle+squash_cycle) * counter_average*2))):
+          cycle1_plus = one_cycle_p_accum / one_cycle_p_count
+          cycle1_minus = one_cycle_m_accum / one_cycle_m_count 
+          cycle1_middle = (cycle1_plus+cycle1_minus)/2          
+          cycle1_plus_org = one_cycle_p_accum_org / one_cycle_p_count
+          cycle1_minus_org = one_cycle_m_accum_org / one_cycle_m_count
+          cycle1_middle_org = (cycle1_plus_org+cycle1_minus_org)/2          
+          write_output_float_register(9,cycle1_middle)
+          write_output_float_register(6,cycle1_plus)
+          write_output_float_register(7,cycle1_minus)
+          # write_output_float_register(23,cycle1_plus_org)
+          # write_output_float_register(24,cycle1_minus_org)
+          # write_output_float_register(25,cycle1_middle_org)
+          cycle_number = cycle_number + 1
+          if(cycle_done == False):
+            if(th_arc_sen[5] != 0):
+              Standard_Arc_Current = th_arc_sen[5]
+            else:
+              Standard_Arc_Current = current_to_welding_m+15
+            end
+            write_output_float_register(8,Standard_Arc_Current)
+          end
+          if(cycle_number==4):
+            cycle_done = True
+          end
+          one_cycle_p_count = 0
+          one_cycle_m_count = 0
+          one_cycle_p_accum = 0
+          one_cycle_m_accum = 0
+          one_cycle_p_accum_org = 0
+          one_cycle_m_accum_org = 0
+
+          #---------------------------------------X offset --------------------------------------------
+          if((norm(cycle1_plus - cycle1_minus) > 0.2) and cycle1_plus > (current_to_welding_m - 40) and cycle1_minus > (current_to_welding_m - 40)):
+            arc_sensing_diff = cycle1_plus - cycle1_minus
+            if(norm(arc_sensing_diff)>12):
+              p_gain_u = th_arc_sen[1] / 100 *2 #0.28
+              i_gain_u = th_arc_sen[2] / 1000 *2#0.004
+            elif(norm(arc_sensing_diff)>7):
+              p_gain_u = th_arc_sen[1] / 100 * 1.5#0.14
+              i_gain_u = th_arc_sen[2] / 1000 * 1.5#0.004
+            else:
+              p_gain_u = th_arc_sen[1] / 100 #0.14
+              i_gain_u = th_arc_sen[2] / 1000 #0.004
+            end
+
+            Ts = 1/system_bus_ms
+            
+            if(arc_sensing_diff>10):
+              arc_sensing_diff = 10
+            elif(arc_sensing_diff<-10):
+              arc_sensing_diff = -10
+            end
+
+            Up = arc_sensing_diff * p_gain_u
+            Ui = Ui + arc_sensing_diff * i_gain_u * Ts
+            Pi_sum = Up + Ui
+
+            if(Pi_sum>7):
+              Pi_sum = 0
+            elif(Pi_sum< -7):
+              Pi_sum = 0
+            end
+
+            arc_x_off = Pi_sum * arc_sens_onoff
+            if(th_par_2f==False):
+              th_wv_wp2 = feature_offset(th_wv_wp2,p[0,-arc_x_off/1000,0,0,0,0],wv_Line_Feature2)
+            end
+            write_output_float_register(10,Up) 
+            write_output_float_register(11,Ui)
+            write_output_float_register(4,-arc_x_off) 
+          end
+
+          #write_output_float_register(4,Standard_Arc_Current)
+
+          #---------------------------------------Z offset --------------------------------------------
+          #record 36-46
+          arc_sensing_diff_z = Standard_Arc_Current-cycle1_middle
+          if(norm(arc_sensing_diff_z)>0.2):
+            if(norm(arc_sensing_diff_z)>10):
+              p_gain_u_z = th_arc_sen[3] / 1000 * 3.5#0.05
+              i_gain_u_z = th_arc_sen[4] / 1000 * 3 #0.018
+            elif(norm(arc_sensing_diff_z)>5):
+              p_gain_u_z = th_arc_sen[3] / 1000 * 1.8 #0.025
+              i_gain_u_z = th_arc_sen[4] / 1000 * 1.5 #0.008
+            else:
+              p_gain_u_z = th_arc_sen[3] / 1000 #0.015
+              i_gain_u_z = th_arc_sen[4] / 1000 #0.004
+            end
+
+            Ts = 1/system_bus_ms
+
+            if(arc_sensing_diff_z>10):
+              arc_sensing_diff_z = 10
+            elif(arc_sensing_diff_z<-10):
+              arc_sensing_diff_z = -10
+            end
+
+            Up_z = arc_sensing_diff_z * p_gain_u_z
+            Ui_z = Ui_z + arc_sensing_diff_z * i_gain_u_z * Ts
+            #
+
+            Pi_sum_z = Up_z + Ui_z
+
+            if(Pi_sum_z > 5):
+              Pi_sum_z = 5
+            elif(Pi_sum_z< -5):
+              Pi_sum_z = -5
+            end
+
+            global arc_z_off = Pi_sum_z *arc_sens_onoff
+
+            if(th_par_2f==False):
+              th_wv_wp2 = feature_offset(th_wv_wp2,p[0,0,arc_z_off/1000,0,0,0],wv_Line_Feature2)
+            end
+            write_output_float_register(12,Up_z)
+            write_output_float_register(13,Ui_z)
+            write_output_float_register(5,arc_z_off)
+            # write_output_float_register(42,100)
+          end
+          arc_x_off = 0
+          arc_z_off = 0
+          counter_average_num = 0
+        end
+        counter_average_num = counter_average_num + 1
+        sync()
+      end
+      if(th_wv_gap[0]==1):
+        T1 = interpolate_pose(th_wv_wp1,th_wv_wp2,ratio_t)
+        get_angle_rx = welding_angle_cal_2f(T1[1],th_tilt_deg,vir_v,cal_off_ang_rx)
+        get_angle_ry = welding_angle_cal_3f(T1[2],th_tilt_deg,z_bottom,cal_off_ang_ry)
+        T_angle = feature_offset(th_wv_wp1,p[0,0,0,d2r(th_tilt_deg[0] + get_angle_rx),d2r(th_tilt_deg[1] + get_angle_ry),d2r(th_tilt_deg[2])],wv_Line_Feature2)
+        T1 = p[T1[0],T1[1],T1[2],T_angle[3],T_angle[4],T_angle[5]]
+        ratio_t = ratio_t + 1/get_total
+        write_output_float_register(19,ratio_t)
+
+        T2 = interpolate_pose(th_wv_wp1,th_wv_wp2,ratio_t)
+        T_angle = feature_offset(th_wv_wp1,p[0,0,0,d2r(th_tilt_deg[0] + get_angle_rx),d2r(th_tilt_deg[1] + get_angle_ry),d2r(th_tilt_deg[2])],wv_Line_Feature2)
+        T2 = p[T2[0],T2[1],T2[2],T_angle[3],T_angle[4],T_angle[5]]
+
+        T_P = interpolate_pose(T1,T2,0.5)
+        T_angle = feature_offset(th_wv_wp1,p[0,0,0,d2r(th_tilt_deg[0] + get_angle_rx),d2r(th_tilt_deg[1] + get_angle_ry),d2r(th_tilt_deg[2])],wv_Line_Feature2)
+        T_P = p[T_P[0],T_P[1],T_P[2],T_angle[3],T_angle[4],T_angle[5]]
+        global cur_dis = move_dis_total-get_line_dist(T1,th_wv_wp2)*1000
+        global amplitude_gap = th_wv_weldpar[4] + (th_wv_gap[1]-th_wv_weldpar[4]) * (cur_dis/move_dis_total)
+        global speed_gap = th_wv_weldpar[1] + (th_wv_gap[2]-th_wv_weldpar[1]) * (cur_dis/move_dis_total)
+        if(th_par_2f):
+          global wv_system_speed = calculate_2f(amplitude_gap,th_wv_wp1,th_wv_wp2,speed_gap,th_wv_weldpar[3],th_wving_delay,th_wving_crater)
+        else:
+          global wv_system_speed = calculate_3f(amplitude_gap,th_wv_wp1,th_wv_wp2,speed_gap,th_wv_weldpar[3],th_wving_delay)
+        end
+        y_radius = y_radius/1000
+      else:
+        T1 = interpolate_pose(th_wv_wp1,th_wv_wp2,ratio_t)
+        get_angle_rx = welding_angle_cal_2f(T1[1],th_tilt_deg,vir_v,cal_off_ang_rx)
+        get_angle_ry = welding_angle_cal_3f(T1[2],th_tilt_deg,z_bottom,cal_off_ang_ry)     
+        T_angle = feature_offset(th_wv_wp1,p[0,0,0,d2r(th_tilt_deg[0] + get_angle_rx),d2r(th_tilt_deg[1] + get_angle_ry),d2r(th_tilt_deg[2])],wv_Line_Feature2)
+        T1 = p[T1[0],T1[1],T1[2],T_angle[3],T_angle[4],T_angle[5]]
+        ratio_t = ratio_t + 1/get_total
+        write_output_float_register(19,ratio_t)
+
+        T2 = interpolate_pose(th_wv_wp1,th_wv_wp2,ratio_t)
+        T_angle = feature_offset(th_wv_wp1,p[0,0,0,d2r(th_tilt_deg[0] + get_angle_rx),d2r(th_tilt_deg[1] + get_angle_ry),d2r(th_tilt_deg[2])],wv_Line_Feature2)
+        T2 = p[T2[0],T2[1],T2[2],T_angle[3],T_angle[4],T_angle[5]]
+
+        T_P = interpolate_pose(T1,T2,0.5)
+        T_angle = feature_offset(th_wv_wp1,p[0,0,0,d2r(th_tilt_deg[0] + get_angle_rx),d2r(th_tilt_deg[1] + get_angle_ry),d2r(th_tilt_deg[2])],wv_Line_Feature2)
+        T_P = p[T_P[0],T_P[1],T_P[2],T_angle[3],T_angle[4],T_angle[5]]
+        global cur_dis = move_dis_total-get_line_dist(T1,th_wv_wp2)*1000        
+      end
+
+      sin_dir = sin_dir * -1
+      if(th_wv_weldpar[5]==1):
+        # 삼각
+        Tp1 = T1
+        Tp2 = feature_offset(T_P,p[0,th_dir*y_radius*sin_dir,0,0,0,0],wv_Line_Feature2)
+        Tp3 = T2
+        if(ratio_t + 1/get_total >= 1):
+          background_pose = [Tp3,Tp3,Tp3]
+        else:
+          background_pose = [Tp1,Tp2,Tp3]
+        end
+      elif(th_wv_weldpar[5]==2):
+        # 사선
+        #y_radius = y_radius_bak/2
+        Tp1 = feature_offset(T1,p[0,th_dir*y_radius,0,0,0,0],wv_Line_Feature2)
+        # Tp1 = feature_offset(T1,p[0,y_radius,0,0,0,0],wv_Line_Feature2)
+        push_angle = th_wving_crater[6]
+        push_dis = norm(y_radius)/tan(d2r(push_angle))
+        if(th_wv_weldpar[6] == 1):
+          Tp1 = feature_offset(T1,p[push_dis,0,0,0,0,0],wv_Line_Feature2)
+          #Tp1 = feature_offset(Tp1,p[push_dis,0,0,0,0,0],wv_Line_Feature2)
+        else:
+          Tp1 = feature_offset(T1,p[-push_dis,0,0,0,0,0],wv_Line_Feature2)
+          #Tp1 = feature_offset(Tp1,p[-push_dis,0,0,0,0,0],wv_Line_Feature2)
+        end
+        Tp2 = T_P
+        # if(start_trig):
+        #   b_dist = point_dist(Tp1,Tp3)
+        # end
+        Tp3 = feature_offset(T2,p[0,-th_dir*y_radius,0,0,0,0],wv_Line_Feature2)
+        # Tp3 = feature_offset(T2,p[0,-y_radius,0,0,0,0],wv_Line_Feature2)
+
+        gcp = get_actual_tcp_pose()
+        write_output_float_register(23,-th_dir*y_radius*1000)
+        write_output_float_register(24,push_dis*1000)
+
+        if(ratio_t + 1/get_total >= 1):
+          background_pose = [Tp1,Tp2,Tp3]
+        else:
+          background_pose = [Tp1,Tp2,Tp3]
+        end
+      end
+    end
+    #168:arc on/off,  169:stick +- 1 mm 170 - 2 next
+    get_stick_2 = read_port_register(169)
+    if(welding_off_t == 1 and weld_onoff == True):
+      write_port_register(202,0)
+      write_port_register(149,0)
+      write_welder(0,False)
+    elif(welding_off_t == 2 and weld_onoff == False and program_weld_on == True and next_path_c == False):
+      write_welder(0,True)
+    end
+    if(get_stick_2==1):
+      th_wv_wp2 = feature_offset(th_wv_wp2,p[0,0,2/1000,0,0,0],wv_Line_Feature2)
+      write_port_register(169,0)
+    elif(get_stick_2==2): 
+      th_wv_wp2 = feature_offset(th_wv_wp2,p[0,0,-2/1000,0,0,0],wv_Line_Feature2)
+      write_port_register(169,0)
+    end
+    if(read_port_register(167)>=1):
+      write_port_register(202,0)
+      write_port_register(149,0)
+      write_welder(0,False)
+      next_path_c = True
+      ratio_t = 1.5
+      global current_list=999
+    end
+    background_ready=1
+    sync()
+  end
+end
+
+def welding_angle_cal_2f_old(c_pos,tilt_deg,vir_v,cal_off_ang_rx):
+  if(cal_off_ang_rx==1):
+    global wdangle = (((c_pos*1000 / 500*0.65)+0.35*vir_v) * tilt_deg[0])-tilt_deg[0]
+  else:
+    global wdangle = 0
+  end
+  return wdangle
+end
+
+def welding_angle_cal_2f(c_pos,tilt_deg,vir_v,cal_off_ang_rx):
+  if(cal_off_ang_rx==1):
+    global wdangle = ((c_pos*1000 / 500) * tilt_deg[0])-tilt_deg[0]
+  else:
+    global wdangle = 0
+  end
+  return wdangle
+end
+
+def welding_angle_cal_3f(c_pos,tilt_deg,z_bottom,cal_off_ang_ry):
+  if(cal_off_ang_ry==1):
+    global wdangle = (((c_pos-z_bottom)*1000) / 500) * 43 #700->600
+  else:
+    global wdangle = 0
+  end
+  return wdangle
+end
+
+def inv_inching(time = 0.3):
+  write_welder(2,True)
+  sleep(time)
+  write_welder(2,False)
+end
+
+def read_welder(status):
+  if(isHicomm):
+    return read_welder_hicomm(status)
+  else:
+    return read_welder_analog(status)
+  end
+end
+
+def read_welder_hicomm(status):
+  #status 4 - stick, 5 - WCR
+  status_addr = [1,2,4,8,16,32,64,128]
+  global r_data = read_port_register(211)
+  global b_data = integer_to_binary_list(r_data)
+  if(status_addr[status]<=r_data):
+    return b_data[status]
+  else:
+    return False
+  end
+end
+#0 - wcr, 1 - stick
+def read_welder_analog(status):
+  #status 4 - stick, 5 - WCR
+  # stick 1, WCR - 0번 digital INPUT
+  status_addr = [6,6,6,6,1,0,6,6]
+  return get_standard_digital_in(status_addr[status])
+end
+
+def read_welder_control(status):
+  if(isHicomm):
+    return read_welder_control_hicomm(status)
+  else:
+    return read_welder_control_analog(status)
+  end
+end
+
+def read_welder_control_hicomm(status):
+  #status 0 - torch, 1 - inch, 2 - inverse inch, 3 - gas check, 4 - stick check, 6 - robot error
+  status_addr = [1,2,4,8,16,32,64,128]
+  global r_data = read_port_register(202)
+  global b_data = integer_to_binary_list(r_data)
+  if(status_addr[status]<=r_data):
+    return b_data[status]
+  else:
+    return False
+  end
+end
+#DI 0: wcr, 1:stick , 2:error
+#DO - 0:torch,1:inching,2:invser,3:gas check, 4:touch
+#status 0 - torch, 1 - inchX, 2 - inverse inchX, 3 - gas checkX, 4 - stick check, 6 - robot errorX
+# touch 4 ,torch - 0 digital INPUT
+def read_welder_control_analog(status):
+  status_addr = [0,1,2,3,4,5]
+  return get_standard_digital_out(status_addr[status])
+end
+
+def write_welder(status,w_value):
+  if(isHicomm):
+    write_welder_hicomm(status,w_value)
+  else:
+    write_welder_analog(status,w_value)
+  end
+end
+
+def write_welder_hicomm(status,w_value):
+  #status 0 - torch, 1 - inch, 2 - inverse inch, 3 - gas check, 4 - stick check, 6 - robot error
+  status_addr = [1,2,4,8,16,64]
+  write_port_register(201,1)
+  if(w_value):
+    r_data = status_addr[status]
+  elif(w_value==False):
+    r_data = 0
+  end
+  write_port_register(202,r_data)
+  write_port_register(149,r_data)
+  # write_output_float_register(22,r_data)
+end
+
+  #status 0 - torch, 1 - inchX, 2 - inverse inchX, 3 - gas checkX, 4 - stick check, 6 - robot errorX
+  # touch 4, touch - 0 digital INPUT
+def write_welder_analog(status,w_value):
+  status_addr = [0,1,2,3,4,5]
+  set_standard_digital_out(status_addr[status],w_value)
+  # write_output_float_register(22,status_addr[status])
+end
+
+def ori_move(origin_pose,angle_pose):
+  global get_ori_p = p[origin_pose[0],origin_pose[1],origin_pose[2],angle_pose[3],angle_pose[4],angle_pose[5]]
+  movel(get_ori_p,a=0.8,v=0.4)
+end
+
+def ori_pose(origin_pose,angle_pose):
+  return p[origin_pose[0],origin_pose[1],origin_pose[2],angle_pose[3],angle_pose[4],angle_pose[5]]
+end
+
+def put_pose(origin_pose,put_index,put_value):
+  origin_pose[put_index]=put_value
+  return origin_pose
+end
+
+def register_read(register_num):
+  r_data = read_port_register(register_num)
+  if(r_data> 32768):
+    return r_data - 65535
+  else:
+    return r_data
+  end
+end
+
+def tilt_2f_fun(get_p,tilt_deg,welding_dir,rotat = False,get_feature=p[0,0,0,0,0,0]):
+  if(get_feature==p[0,0,0,0,0,0]):
+    get_feature = get_p
+  end
+  if(welding_dir==-1):
+    vir_v = -1
+  else:
+    vir_v = 1
+  end
+  cal_off_ang_rx = 1
+  get_angle_rx = welding_angle_cal_2f(get_p[1],tilt_deg,vir_v,cal_off_ang_rx)
+  
+  if(rotat==False):
+    get_p = pose_trans(get_p,p[0,0,0,0,0,d2r(-90)])
+  end
+  get_p = feature_offset(get_p,p[0,0,0,d2r(tilt_deg[0] + get_angle_rx),d2r(tilt_deg[1]),d2r(tilt_deg[2])],get_feature)
+  return get_p
+end
+
+def tilt_3f_fun(get_p,tilt_deg,z_bottom,get_feature=p[0,0,0,0,0,0]):
+  if(get_feature==p[0,0,0,0,0,0]):
+    get_feature = get_p
+  end
+  cal_off_ang_ry = 1
+  global get_angle_ry = welding_angle_cal_3f(get_p[2],tilt_deg,z_bottom,cal_off_ang_ry)
+  get_p = feature_offset(get_p,p[0,0,0,d2r(tilt_deg[0]),d2r(tilt_deg[1] + get_angle_ry),d2r(tilt_deg[2])],get_feature)
+  return get_p
+end
+
+def calculate_3f(wving_amplitude,tg_wv_wp1,tg_wv_wp2,cir_speed_org,wving_frequency,wving_delay):
+  # y_radius of tri wave is wving_amplitude (mm)
+  global y_radius = wving_amplitude / 2
+  # get total line distance without rotation (mm)
+  global move_dis = point_dist(tg_wv_wp1,tg_wv_wp2)*1000
+  global move_dis2 = point_dist(tg_wv_wp1,tg_wv_wp2)*1000
+  global move_dis_total = move_dis
+  #global wving_frequency_2 = wving_frequency
+  
+  #Circle_Speed=(a2_speed_cpm/6)*(a4_wv_frequency*(b3_wv_delay1+b4_wv_delay2+b5_wv_delay3+b6_wv_delay4)+1)*1.2
+  #cpm - cm per minute 1 cpm - 10mm per minute = 1/6mm per second = cpm * 1/6 mm/sec
+  # total running time (sec) - cir_speed_org cpm.
+  global wv_times_org = move_dis/(cir_speed_org/6)
+  global wv_times = wv_times_org
+
+  # wv tri total count (times) - speed and arrive right position is more important so floor hz
+  # dwell time 0.4 초면 1.4초당 3.3회를 해야 한다.
+  # total time 100초, delay 1초, hz5 - 2sec 5times. 100/5*2
+  global wv_total_hz = floor(wv_times_org*wving_frequency/(1+wving_delay[0]+wving_delay[1]+wving_delay[2]+wving_delay[3]))
+
+  system_delay = 0.12044 + (wving_frequency-1)*0.038
+  wv_times = wv_times_org - (wv_total_hz*2*system_delay)
+  # wv_total_hz = floor(wv_times*wving_frequency/(1+wving_delay[0]+wving_delay[1]+wving_delay[2]+wving_delay[3]))
+
+  # wv tri_half total count (times)
+  global get_total = wv_total_hz*2
+  # wv step -> final value should be same with get_total
+
+  # x radius of tri wave
+  global x_radius = (move_dis/wv_total_hz)
+  # single wave distance
+  global wave_dis = sqrt((x_radius*x_radius)+(y_radius*y_radius))*4
+  # total robot distance
+  global total_dis = wv_total_hz * wave_dis
+
+  # robot speed distance/time = speed
+  wv_system_speed = total_dis / (wv_times)
+  if(wv_times == 0 or cir_speed_org == 0):
+    write_port_register(142,111)
+    sleep(0.5)
+    halt
+  end
+  return wv_system_speed
+end
+
+
+def set_current_voltage(o_cur,o_vol):
+  if(isHicomm):
+    set_current_voltage_hicomm(o_cur,o_vol)
+  else:
+    set_current_voltage_analog(o_cur,o_vol)
+  end
+end
+
+def set_current_voltage_hicomm(o_cur,o_vol):
+    write_port_register(204,o_cur)
+    write_port_register(205,o_vol*10)
+    write_port_register(133,o_cur)
+    write_port_register(134,o_vol*10)
+end
+
+def set_current_voltage_analog(o_cur,o_vol):
+    vol_an=((o_vol-14)/2.8)/10
+    amp_an=((o_cur-60)/44)/10
+    set_standard_analog_out(0,vol_an)
+    set_standard_analog_out(1,amp_an)
+    write_port_register(133,o_cur)
+    write_port_register(134,o_vol*10)
+end
+
+
+def calculate_2f_old(wving_amplitude,tg_wv_wp1,tg_wv_wp2,cir_speed_org,wving_frequency,wving_delay,wving_crater):
+  global y_radius = wving_amplitude / 2
+  global move_dis = point_dist(tg_wv_wp1,tg_wv_wp2)*1000
+  global move_dis_total = move_dis
+
+  global wv_times_org = move_dis/(cir_speed_org*1/6)
+  global wv_times = wv_times_org
+
+  global wv_total_hz = floor(wv_times_org*wving_frequency/(1+wving_delay[0]+wving_delay[1]+wving_delay[2]+wving_delay[3]))
+  system_delay = 0.00832
+  global wv_times = wv_times_org - (wv_total_hz*2*system_delay)
+
+  global get_total = wv_total_hz
+  dir=1
+  ratio_t_sam = 1/get_total*1
+  T1_sam = interpolate_pose(tg_wv_wp1,tg_wv_wp2,ratio_t_sam)        
+  ratio_t_sam = ratio_t_sam + 1/get_total
+  T2_sam = interpolate_pose(tg_wv_wp1,tg_wv_wp2,ratio_t_sam)     
+  global push_angle = wving_crater[6]
+  global push_dis_sam = norm(y_radius)/tan(d2r(push_angle))
+  Tp1_sam = feature_offset(T1_sam,p[0,dir*y_radius,0,0,0,0],wv_Line_Feature2)
+  Tp1_sam = feature_offset(T1_sam,p[push_dis_sam,0,0,0,0,0],wv_Line_Feature2)
+  Tp2_sam = feature_offset(T2_sam,p[0,-dir*y_radius,0,0,0,0],wv_Line_Feature2)
+  Tp3_sam = feature_offset(T2_sam,p[0,dir*y_radius,0,0,0,0],wv_Line_Feature2)
+  Tp3_sam = feature_offset(T2_sam,p[push_dis_sam,0,0,0,0,0],wv_Line_Feature2)
+
+  global total_dis = wv_total_hz * (point_dist(Tp1_sam,Tp2_sam)+point_dist(Tp3_sam,Tp2_sam))
+  wv_system_speed = total_dis / wv_times
+    if(wv_times == 0 or cir_speed_org == 0):
+    write_port_register(142,111)
+    sleep(0.5)
+    halt
+  end
+  return wv_system_speed
+end
+
+
+def calculate_2f(wving_amplitude,tg_wv_wp1,tg_wv_wp2,cir_speed_org,wving_frequency,wving_delay,wving_crater):
+  global y_radius = wving_amplitude / 2
+  global move_dis = point_dist(tg_wv_wp1,tg_wv_wp2)*1000
+  global move_dis_total = move_dis
+  global wv_times_org = move_dis/(cir_speed_org*1/6)
+  global wv_times = wv_times_org
+  global wv_total_hz = floor(wv_times_org*wving_frequency/(1+wving_delay[0]+wving_delay[1]+wving_delay[2]+wving_delay[3]))
+  global get_total = wv_total_hz*4
+
+  dir=1
+  ratio_t_sam = 1/get_total*1
+  T1_sam = interpolate_pose(tg_wv_wp1,tg_wv_wp2,ratio_t_sam)        
+  global ratio_t_sam = ratio_t_sam + 2/get_total
+  T2_sam = interpolate_pose(tg_wv_wp1,tg_wv_wp2,ratio_t_sam)          
+  ratio_t_sam = ratio_t_sam + 1/get_total
+  T3_sam = interpolate_pose(tg_wv_wp1,tg_wv_wp2,ratio_t_sam)     
+  global push_angle = wving_crater[6]
+  global push_dis_sam = norm(y_radius)/tan(d2r(push_angle))
+  Tp1_sam = feature_offset(T1_sam,p[0,dir*y_radius/1000,0,0,0,0],wv_Line_Feature2)
+  Tp1_sam = feature_offset(Tp1_sam,p[push_dis_sam/1000,0,0,0,0,0],wv_Line_Feature2)
+  Tp2_sam = feature_offset(T2_sam,p[0,-dir*y_radius/1000,0,0,0,0],wv_Line_Feature2)
+  global total_dis = wv_total_hz * (get_line_dist(tg_wv_wp1,Tp1_sam)+get_line_dist(Tp1_sam,Tp2_sam)+get_line_dist(Tp2_sam,T3_sam))*1000
+  wv_system_speed = total_dis / wv_times
+  system_delay =  (wv_system_speed*2.1)/1000 
+  wv_times = wv_times_org - (wv_total_hz*2*system_delay)
+  wv_system_speed = total_dis / wv_times
+  get_total = wv_total_hz*2
+
+    if(wv_times == 0 or cir_speed_org == 0):
+    write_port_register(142,111)
+    sleep(0.5)
+    halt
+  end
+  return wv_system_speed
+end
+def weaving_simple(wv_wp1,wv_wp3,cir_speed_org,wving_frequency,wving_amplitude,welding_on):
+  wv_dist = 0
+  tilt_deg = [0,0,0]
+  wving_delay = [0,0,0,0]
+  wving_type = 1
+  Arc_sen=[0,0,0,0,0,0]
+  wv_gap=[0,0,0,0]
+  welding_dir=1
+  z_param=[0,0,0,0,0]
+  par_2f=False
+  wving_crater=[0,0,0,0,0,0,0,0,0,0]
+  ext_fun=[0,0,0,0,0,0,0,0,0,0,0]
+  wv_seq = [0,-1]
+  wv_feature=p[0,0,0,0,0,0] 
+  wv_weldpar=[0,cir_speed_org,0,wving_frequency,wving_amplitude,wving_type,welding_dir]
+  line_weaving_tp(wv_wp1,wv_wp3,wv_weldpar,tilt_deg,wving_delay,welding_on,Arc_sen,wv_gap,z_param,par_2f,wving_crater,ext_fun,wv_seq,wv_feature)
+end
+
+def line_weaving_tp(wv_wp1,wv_wp3,wv_weldpar=[100,10,0,1,5,1,1],tilt_deg=[0,0,0],wving_delay=[0,0,0,0],welding_on=False,Arc_sen=[0,0,0,0,0,0],wv_gap=[0,0,0,0],z_param=[0,0,0,0,0],par_2f=False,wving_crater=[0,0,0,0,0,0,0,0,0,0],ext_fun=[0,0,0,0,0,0,0,0,0,0,0],wv_seq = [0,-1],wv_feature=p[0,0,0,0,0,0]):
+  global start_gas_time = 2
+  global counter_average = 1
+  global counter_average_num = 0
+  global waste_cycle = ext_fun[8]
+  if(par_2f):
+    global squash_cycle = 0
+  else:
+    global squash_cycle = ext_fun[7]
+  end
+  global th_ext_fun = ext_fun
+  RTDE_init()
+
+  # e-Series 2, CB-Seris 8
+  global system_bus_ms = 2
+
+  global sin_dir = wv_seq[1]
+  global start_trig = False
+  dir=1
+
+  global tri_count=0
+
+  global z_bottom = z_param[0]/1000
+  if(wv_weldpar[6]==-1):
+    global vir_v = -1
+  else:
+    global vir_v = 1
+  end
+
+  if(par_2f):
+    global cal_off_ang_rx = 1
+    global cal_off_ang_ry = 0
+  else:
+    global cal_off_ang_rx = 0
+    global cal_off_ang_ry = 1
+  end
+
+  if(wv_seq[0] == 2 or wv_seq[0] == 3):
+    tilt_deg = [0,0,0]
+    global cal_off_ang_rx = 0
+    global cal_off_ang_ry = 0
+  end
+
+  global wv_Line_Feature2 = wv_wp1
+  if(wv_weldpar[0] > 650 and par_2f == False):
+    wv_weldpar[0] = 650
+  end
+  if(wv_wp3==p[0,0,0,0,0,0]):
+    global wv_wp2 = feature_offset(wv_wp1,p[wv_weldpar[0]/1000,0,0,0,0,0],wv_Line_Feature2)
+  else:
+    global wv_wp2 = wv_wp3
+    wv_weldpar[0] = point_dist(wv_wp1,wv_wp2)*1000
+    global wv_dist_bak = point_dist(wv_wp1,wv_wp2)*1000
+  end
+  if(wv_feature != p[0,0,0,0,0,0]):
+    wv_Line_Feature2 = wv_feature
+  end
+  #setting
+  if(par_2f):
+    #todo - 1
+    global offset_2f_k = -1 * ext_fun[9]
+    global offset_2f_z = 1 * ext_fun[10]
+    if(wv_seq[0] == 0 or wv_seq[0] == 1):
+      line_feature = get_feature_Line(wv_wp1,wv_wp2)
+      b_p1 = wv_wp1
+      b_p2 = feature_offset(wv_wp1,p[0,0.02*vir_v,0,0,0,0],line_feature)
+      # b_p2 = feature_offset(wv_wp1,p[0,0.01,0,0,0,0],line_feature)
+      b_p3 = pose_add(wv_wp1,p[0,0,0.02,0,0,0])
+
+      back_feature = get_feature_plane_xz(b_p1,b_p2,b_p3)
+
+      wv_wp1 = pose_trans(wv_wp1,p[0,0,0,0,0,d2r(-90)])
+      wv_wp1 = feature_offset(wv_wp1,p[0,offset_2f_k/1000,0,0,0,0],back_feature)
+      wv_wp1 = pose_add(wv_wp1,p[0,0,offset_2f_z/1000,0,0,0])
+      global bak_wv_wp1 = wv_wp1
+    end
+      wv_wp2 = feature_offset(wv_wp2,p[0,offset_2f_k/1000,0,0,0,0],back_feature)
+      wv_wp2 = pose_add(wv_wp2,p[0,0,offset_2f_z/1000,0,0,0])
+      wv_wp2 = p[wv_wp2[0],wv_wp2[1],wv_wp2[2],wv_wp1[3],wv_wp1[4],wv_wp1[5]]
+      global bak_wv_wp2 = wv_wp2
+  end
+  if(ext_fun[2]==1 and par_2f==False):
+    w_voltage = ext_fun[3]
+    w_current = ext_fun[4]
+    set_current_voltage(w_current,w_voltage)
+    global cir_speed_org_bak = wv_weldpar[1]
+    global wving_amplitude_bak = wv_weldpar[4] 
+    wv_weldpar[1] = ext_fun[6]
+    wv_weldpar[4] = ext_fun[5]
+  end
+  if(par_2f):
+    global wv_system_speed = calculate_2f(wv_weldpar[4],wv_wp1,wv_wp2,wv_weldpar[1],wv_weldpar[3],wving_delay,wving_crater)
+  else:
+    global wv_system_speed = calculate_3f(wv_weldpar[4],wv_wp1,wv_wp2,wv_weldpar[1],wv_weldpar[3],wving_delay)
+    x_radius = x_radius / 1000
+  end
+  global wv_set_speed = wv_system_speed
+  ratio_t=0
+  global y_radius = y_radius / 1000
+  global y_radius_bak = y_radius
+  global ext_stick = 0
+  global th_arc_sen=Arc_sen
+  global th_wv_gap=wv_gap
+  global th_tilt_deg=tilt_deg
+  global th_wving_crater=wving_crater
+  global th_par_2f = par_2f
+  global th_cir_speed_org=wv_weldpar[1]
+  global th_wv_wp1 = wv_wp1
+  global th_wv_wp2 = wv_wp2
+  global th_wv_wp3 = wv_wp3
+  global th_wv_weldpar=wv_weldpar
+  global th_wving_delay=wving_delay
+  global th_z_param=z_param
+  global th_wv_seq = wv_seq
+  global th_wv_feature=wv_feature
+  global th_dir = dir
+
+  # if want to use approach position
+  if(wv_seq[0] ==0 or wv_seq[0] == 1):
+    global get_angle_rx = welding_angle_cal_2f(wv_wp1[1],tilt_deg,vir_v,cal_off_ang_rx)
+    global get_angle_ry = welding_angle_cal_3f(wv_wp1[2],tilt_deg,z_bottom,cal_off_ang_ry)
+    
+    target_p = feature_offset(wv_wp1,p[0,0,0,d2r(tilt_deg[0] + get_angle_rx),d2r(tilt_deg[1] + get_angle_ry),d2r(tilt_deg[2])],wv_Line_Feature2)
+
+    if(wv_weldpar[2]==1):
+      target_p_appr = feature_offset(target_p,p[0,0,-0.02,0,0,0],wv_Line_Feature2)
+      movel(target_p_appr,a=0.5,v=0.125)
+    end
+    movel(target_p,a=0.5,v=0.125)
+  end
+  CThread = run CalThread()
+  DThread = run diff_Thread()
+  TThread = run thread_timer()
+  global timer_counting=True
+  global program_weld_on = True
+
+  if(a9_wv_weldingon==True):
+    while(welding_off_t==55):
+      sync()
+    end
+    if(wving_crater[2]>0):
+      set_current_voltage(wving_crater[0],wving_crater[1])
+    end
+    if(welding_off_t != 1):
+      if(isHicomm):
+        write_welder(0,True)
+      else:
+        set_standard_digital_out(0,True)
+      end
+      while(read_welder(5)==False):
+        if(weld_onoff==False):
+            write_welder(0,True)
+        end
+        sync()
+      end
+      if(wving_crater[2]>0):
+        #Crater Begin option
+        write_output_float_register(1,1)
+        sleep(wving_crater[2])
+        set_current_voltage(ext_fun[1],ext_fun[0])
+      end
+    end
+  end
+  start_gas_time = 0
+
+  background_cal=1
+  background_ready=0
+  FT_trig=True
+  timer_1_is_counting = True
+
+  while((ratio_t < 1)):
+    if((norm(tri_count)>=2 or (FT_trig==True))):
+      FT_trig = False
+      while(background_ready==0):
+        sync()
+      end
+      tri_count = 0
+      background_ready = 0      
+      global move_p = background_pose
+      wv_wp2 = th_wv_wp2
+      if(par_2f):
+        background_cal=1
+      else:
+        background_cal=1
+      end
+      global a_val = 3
+      if(a_val >= 30):
+        write_port_register(142,112)
+        sleep(0.5)
+        halt
+      end
+    end
+
+    if(wv_weldpar[5] ==1):
+        if( (sin_dir==1 and wving_delay[0]==0) or (sin_dir==-1 and wving_delay[2]==0)):
+         tri_count = tri_count + 1
+        end
+        global target_p = move_p[tri_count]
+        target_p=p[target_p[0],target_p[1],target_p[2],target_p[3],target_p[4],target_p[5]]
+        tri_count = tri_count + 1
+    elif(wv_weldpar[5] ==2):
+      if( (tri_count==1 and sin_dir==1 and wving_delay[0]==0) or (tri_count==1 and sin_dir==-1 and wving_delay[2]==0)):
+       tri_count = tri_count + 1
+      end
+      global target_p = move_p[tri_count]
+      target_p=p[target_p[0],target_p[1],target_p[2],target_p[3],target_p[4],target_p[5]]
+      tri_count = tri_count + 1
+    else:
+      popup("Please insert 0 - sin or 1 - triangle")
+    end
+    if(target_p == p[0,0,0,0,0,0]):
+      target_p = get_actual_tcp_pose()
+    end
+    write_output_float_register(25,tri_count)
+    if((norm(tri_count)== 1) and sin_dir==1 and wving_delay[0]>0):
+      movel(target_p,a=a_val,v=wv_system_speed/1000)
+      sleep(wving_delay[0])
+    elif((norm(tri_count)== 2) and sin_dir==1 and wving_delay[1]>0):
+      movel(target_p,a=a_val,v=wv_system_speed/1000)
+      peak_value = 0
+      sleep(wving_delay[1])
+      peak_value = 100
+    elif((norm(tri_count)== 1) and sin_dir==-1 and wving_delay[2]>0):
+      movel(target_p,a=a_val,v=wv_system_speed/1000)
+      sleep(wving_delay[2])
+    elif((norm(tri_count)== 2) and sin_dir==-1 and wving_delay[3]>0):
+      movel(target_p,a=a_val,v=wv_system_speed/1000)
+      peak_value = 0
+      sleep(wving_delay[3])
+      peak_value = 100
+    else:
+      movel(target_p,a=a_val,v=wv_system_speed/1000)
+    end
+  end
+  timer_1_is_counting = False
+
+  if(a9_wv_weldingon == True and wving_crater[5]!=0):
+    #crater end option
+    set_current_voltage(wving_crater[3],wving_crater[4])
+    sleep(wving_crater[5])
+    program_weld_on = False
+    set_current_voltage(ext_fun[1],ext_fun[0])
+    if(isHicomm):
+      write_port_register(202,0)
+      write_port_register(149,0)
+    else:
+      set_standard_digital_out(0,False)
+    end
+    while(read_welder(5)==True):
+      if(weld_onoff==True):
+        write_welder(0,False)
+      end
+      sync()
+    end
+  end
+  timer_counter = 0
+  kill CThread
+  kill DThread
+  kill TThread
+  timer_counter = 0
+  timer_counting = False
+  wcr_counter = 0
+  wcr_counting = False
+  get_wcr = False
+  welding_off_t = 0
+
+  if(wv_seq[0] == 0 or wv_seq[0] == 3):
+    if(a9_wv_weldingon==True):
+      program_weld_on = False
+      write_port_register(202,0)
+      write_port_register(149,0)
+      write_welder(0,False)
+      if(wv_weldpar[2]==1):
+        target_pos = feature_offset(get_actual_tcp_pose(),p[0,0,-0.01,0,0,0],wv_Line_Feature2)
+        movel(target_pos,0.5,0.01)
+      end
+    end
+  end
+  background_pose = [dumy_p,dumy_p,dumy_p]
+  move_p = background_pose
+  return sin_dir
+end
+
+
+def line_weaving_tp_l(wv_wp1,wv_wp3,wv_weldpar=[100,10,0,1,5,1,1],tilt_deg=[0,0,0],wving_delay=[0,0,0,0],welding_on=False,Arc_sen=[0,0,0,0,0,0],wv_gap=[0,0,0,0],z_param=[0,0,0,0,0],par_2f=False,wving_crater=[0,0,0,0,0,0,0,0,0,0],ext_fun=[0,0,0,0,0,0,0,0,0,0,0],wv_seq = [0,-1],wv_feature=p[0,0,0,0,0,0]):
+  global start_gas_time = 2
+  global counter_average = 1
+  global counter_average_num = 0
+  global waste_cycle = ext_fun[8]
+  global current_list = 0
+  global wv_wp4 = wv_wp3
+  global A_T1 = wv_wp4[0]
+  global A_T2 = wv_wp4[1]
+  global A_T3 = wv_wp4[2]
+  if(par_2f):
+    global squash_cycle = 0
+  else:
+    global squash_cycle = ext_fun[7]
+  end
+  global th_ext_fun = ext_fun
+  RTDE_init()
+
+  if (wv_gap[0]==1):
+    gap_check = True
+    wv_gap[0]=0
+  else:
+    gap_check= False
+  end
+  # e-Series 2, CB-Seris 8
+  global system_bus_ms = 2
+
+  global sin_dir = wv_seq[1]
+  global start_trig = False
+  dir=1
+
+  global tri_count=0
+
+  global z_bottom = z_param[0]/1000
+  if(wv_weldpar[6]==-1):
+    global vir_v = -1
+  else:
+    global vir_v = 1
+  end
+
+  if(par_2f):
+    global cal_off_ang_rx = 1
+    global cal_off_ang_ry = 0
+  else:
+    global cal_off_ang_rx = 0
+    global cal_off_ang_ry = 1
+  end
+
+  if(wv_seq[0] == 2 or wv_seq[0] == 3):
+    tilt_deg = [0,0,0]
+    global cal_off_ang_rx = 0
+    global cal_off_ang_ry = 0
+  end
+
+  global wv_Line_Feature2 = wv_wp1
+  if(wv_weldpar[0] > 700 and par_2f == False):
+    wv_weldpar[0] = 700
+  end
+  if(wv_wp3[0]==p[0,0,0,0,0,0]):
+    global wv_wp2 = feature_offset(wv_wp1,p[wv_weldpar[0]/1000,0,0,0,0,0],wv_Line_Feature2)
+  else:
+    global wv_wp2 = wv_wp4[0]
+    wv_weldpar[0] = point_dist(wv_wp1,wv_wp2)*1000
+    global wv_dist_bak = point_dist(wv_wp1,wv_wp2)*1000
+  end
+  if(wv_seq[0] == 2 or wv_seq[0] == 3):
+    wv_Line_Feature2 = wv_feature
+  end
+  #setting
+  if(par_2f):
+    #todo - 1
+    offset_2f_k = -1 * ext_fun[9]
+    offset_2f_z = 1 * ext_fun[10]
+    if(wv_seq[0] == 0 or wv_seq[0] == 1):
+      line_feature = get_feature_Line(wv_wp1,wv_wp2)
+      b_p1 = wv_wp1
+      b_p2 = feature_offset(wv_wp1,p[0,0.01*vir_v,0,0,0,0],line_feature)
+      b_p3 = pose_add(wv_wp1,p[0,0,0.01,0,0,0])
+
+      back_feature = get_feature_plane_xz(b_p1,b_p2,b_p3)
+      wv_wp1 = pose_trans(wv_wp1,p[0,0,0,0,0,d2r(-90)])
+      wv_wp1 = feature_offset(wv_wp1,p[0,offset_2f_k/1000,0,0,0,0],back_feature)
+      wv_wp1 = pose_add(wv_wp1,p[0,0,offset_2f_z/1000,0,0,0])
+      # wv_wp1 = pose_add(wv_wp1,p[offset_2f_k/1000,0,0,0,0,0])
+    end
+      # wv_wp2 = pose_add(wv_wp2,p[offset_2f_k/1000,0,0,0,0,0])
+      wv_wp2 = feature_offset(wv_wp2,p[0,offset_2f_k/1000,0,0,0,0],back_feature)
+      wv_wp2 = pose_add(wv_wp2,p[0,0,offset_2f_z/1000,0,0,0])
+      wv_wp2 = p[wv_wp2[0],wv_wp2[1],wv_wp2[2],wv_wp1[3],wv_wp1[4],wv_wp1[5]]
+
+      wv_wp3_p = feature_offset(wv_wp3[0],p[0,offset_2f_k/1000,0,0,0,0],back_feature)
+      wv_wp3_p = pose_add(wv_wp3_p,p[0,0,offset_2f_z/1000,0,0,0])
+      wv_wp3_p = p[wv_wp3_p[0],wv_wp3_p[1],wv_wp3_p[2],wv_wp1[3],wv_wp1[4],wv_wp1[5]]
+      wv_wp4[0] = p[wv_wp3_p[0],wv_wp3_p[1],wv_wp3_p[2],wv_wp1[3],wv_wp1[4],wv_wp1[5]]
+
+      wv_wp3_p = feature_offset(wv_wp3[1],p[0,offset_2f_k/1000,0,0,0,0],back_feature)
+      wv_wp3_p = pose_add(wv_wp3_p,p[0,0,offset_2f_z/1000,0,0,0])
+      wv_wp3_p = p[wv_wp3_p[0],wv_wp3_p[1],wv_wp3_p[2],wv_wp1[3],wv_wp1[4],wv_wp1[5]]
+      wv_wp4[1] = p[wv_wp3_p[0],wv_wp3_p[1],wv_wp3_p[2],wv_wp1[3],wv_wp1[4],wv_wp1[5]]
+
+      wv_wp3_p = feature_offset(wv_wp3[2],p[0,offset_2f_k/1000,0,0,0,0],back_feature)
+      wv_wp3_p = pose_add(wv_wp3_p,p[0,0,offset_2f_z/1000,0,0,0])
+      wv_wp3_p = p[wv_wp3_p[0],wv_wp3_p[1],wv_wp3_p[2],wv_wp1[3],wv_wp1[4],wv_wp1[5]]
+      wv_wp4[2] = p[wv_wp3_p[0],wv_wp3_p[1],wv_wp3_p[2],wv_wp1[3],wv_wp1[4],wv_wp1[5]]
+  end
+  if(ext_fun[2]==1 and par_2f==False):
+    #squash
+    w_voltage = ext_fun[3]
+    w_current = ext_fun[4]
+    set_current_voltage(w_current,w_voltage)
+    global cir_speed_org_bak = wv_weldpar[1]
+    global wving_amplitude_bak = wv_weldpar[4] 
+    wv_weldpar[1] = ext_fun[6]
+    wv_weldpar[4] = ext_fun[5]
+  end
+  if(par_2f):
+    global wv_system_speed = calculate_2f(wv_weldpar[4],wv_wp1,wv_wp2,wv_weldpar[1],wv_weldpar[3],wving_delay,wving_crater)
+  else:
+    global wv_system_speed = calculate_3f(wv_weldpar[4],wv_wp1,wv_wp2,wv_weldpar[1],wv_weldpar[3],wving_delay)
+    x_radius = x_radius / 1000
+  end
+  global wv_set_speed = wv_system_speed
+  ratio_t=0
+  # mm -> m
+  global y_radius = y_radius / 1000
+  global y_radius_bak = y_radius
+  #init for thread
+  global ext_stick = 0
+  global th_arc_sen=Arc_sen
+  global th_wv_gap=wv_gap
+  global th_tilt_deg=tilt_deg
+  global th_wving_crater=wving_crater
+  global th_par_2f = par_2f
+  global th_cir_speed_org=wv_weldpar[1]
+  global th_wv_wp1 = wv_wp1
+  global th_wv_wp2 = wv_wp2
+  global th_wv_wp3 = wv_wp3[0]
+  global th_wv_weldpar=wv_weldpar
+  global th_wving_delay=wving_delay
+  global th_z_param=z_param
+  global th_wv_seq = wv_seq
+  global th_wv_feature=wv_feature
+  global th_dir = dir
+
+  # if want to use approach position
+  if(wv_seq[0] ==0 or wv_seq[0] == 1):
+    global get_angle_rx = welding_angle_cal_2f(wv_wp1[1],tilt_deg,vir_v,cal_off_ang_rx)
+    global get_angle_ry = welding_angle_cal_3f(wv_wp1[2],tilt_deg,z_bottom,cal_off_ang_ry)
+    
+    target_p = feature_offset(wv_wp1,p[0,0,0,d2r(tilt_deg[0] + get_angle_rx),d2r(tilt_deg[1] + get_angle_ry),d2r(tilt_deg[2])],wv_Line_Feature2)
+
+    if(wv_weldpar[2]==1):
+      target_p_appr = feature_offset(target_p,p[0,0,-0.02,0,0,0],wv_Line_Feature2)
+      movel(target_p_appr,a=0.5,v=0.125)
+    end
+    movel(target_p,a=0.5,v=0.125)
+  end  
+
+  CThread = run CalThread()
+  DThread = run diff_Thread()
+  TThread = run thread_timer()
+  global timer_counting=True
+  global program_weld_on = True
+
+  if(a9_wv_weldingon==True):
+    while(welding_off_t==55):
+      sync()
+    end
+    if(wving_crater[2]>0):
+      set_current_voltage(wving_crater[0],wving_crater[1])
+    end
+    if(welding_off_t != 1):
+      write_welder(0,True)
+      while(get_wcr==False):
+        if(weld_onoff==False):
+          write_welder(0,True)
+        end
+        sync()
+      end
+      if(wving_crater[2]>0):
+        #Crater Begin option
+        write_output_float_register(1,1)
+        sleep(wving_crater[2])
+        set_current_voltage(ext_fun[1],ext_fun[0])
+      end
+    end
+  end
+  start_gas_time = 0
+
+  background_cal=1
+  background_ready=0
+  FT_trig=True
+
+  timer_1_is_counting = True
+
+  while((ratio_t < 1) or current_list==0 or current_list==1):
+    if(ratio_t>=1 and current_list!=2):
+      if (gap_check):
+        gap_check = True
+        wv_gap[0]=1
+        th_wv_gap[0]=1
+        gap_check= False
+      end
+      ratio_t=0
+      if(current_list==0):
+        wving_amp_bak = wv_weldpar[4]
+        wv_weldpar[4] = wv_weldpar[4] * 1
+        th_wv_weldpar[4] = wv_weldpar[4]
+        circle_speed_bak = wv_weldpar[1]
+        wv_weldpar[1]= wv_weldpar[1]*0.7
+        th_wv_weldpar[1]= wv_weldpar[1]
+      elif(current_list==1):
+        wv_weldpar[4] = wving_amp_bak
+        th_wv_weldpar[4] = wv_weldpar[4]
+        wv_weldpar[1] = circle_speed_bak
+        th_wv_weldpar[1]= wv_weldpar[1]
+      end
+      wv_wp1=wv_wp4[current_list]
+      wv_wp2=wv_wp4[current_list+1]
+      global th_wv_wp1 = wv_wp4[current_list]
+      global th_wv_wp2 = wv_wp4[current_list+1]
+      global th_wv_wp3 = wv_wp4[current_list+1]
+      wv_system_speed_bak = wv_system_speed
+      if(par_2f):
+        global wv_system_speed = calculate_2f(wv_weldpar[4],wv_wp4[current_list],wv_wp4[current_list+1],wv_weldpar[1],wv_weldpar[3],wving_delay,wving_crater)
+        global y_radius = y_radius / 1000
+        global y_radius_bak = y_radius
+      else:
+        global wv_system_speed = calculate_3f(wv_weldpar[4],wv_wp4[current_list],wv_wp4[current_list+1],wv_weldpar[1],wv_weldpar[3],wving_delay)
+        x_radius = x_radius / 1000
+      end
+      wv_system_speed = wv_system_speed_bak
+      current_list=current_list+1
+    end
+    if((norm(tri_count)>=2 or (FT_trig==True))):
+      FT_trig = False
+      while(background_ready==0):
+        sync()
+      end
+      tri_count = 0
+      background_ready = 0      
+      global move_p = background_pose
+      wv_wp2 = th_wv_wp2
+      if(par_2f):
+        background_cal=1
+      else:
+        background_cal=1
+      end
+      global a_val = 3
+      if(a_val >= 30):
+        write_port_register(142,112)
+        sleep(0.5)
+        halt
+      end
+    end
+
+    if(wv_weldpar[5] ==1):
+        if( (sin_dir==1 and wving_delay[0]==0) or (sin_dir==-1 and wving_delay[2]==0)):
+         tri_count = tri_count + 1
+        end
+        global target_p = move_p[tri_count]
+        target_p=p[target_p[0],target_p[1],target_p[2],target_p[3],target_p[4],target_p[5]]
+        tri_count = tri_count + 1
+    elif(wv_weldpar[5] ==2):
+      if( (tri_count==1 and sin_dir==1 and wving_delay[0]==0) or (tri_count==1 and sin_dir==-1 and wving_delay[2]==0)):
+       tri_count = tri_count + 1
+      end
+      global target_p = move_p[tri_count]
+      target_p=p[target_p[0],target_p[1],target_p[2],target_p[3],target_p[4],target_p[5]]
+      tri_count = tri_count + 1
+    else:
+      popup("Please insert 0 - sin or 1 - triangle")
+    end
+
+    if(target_p == p[0,0,0,0,0,0]):
+      target_p = get_actual_tcp_pose()
+    end
+    if((norm(tri_count)== 1) and sin_dir==1 and wving_delay[0]>0):
+      movel(target_p,a=a_val,v=wv_system_speed/1000)
+      sleep(wving_delay[0])
+    elif((norm(tri_count)== 2) and sin_dir==1 and wving_delay[1]>0):
+      movel(target_p,a=a_val,v=wv_system_speed/1000)
+      peak_value = 0
+      sleep(wving_delay[1])
+      peak_value = 100
+    elif((norm(tri_count)== 1) and sin_dir==-1 and wving_delay[2]>0):
+      movel(target_p,a=a_val,v=wv_system_speed/1000)
+      sleep(wving_delay[2])
+    elif((norm(tri_count)== 2) and sin_dir==-1 and wving_delay[3]>0):
+      movel(target_p,a=a_val,v=wv_system_speed/1000)
+      peak_value = 0
+      sleep(wving_delay[3])
+      peak_value = 100
+    else:
+      movel(target_p,a=a_val,v=wv_system_speed/1000)
+    end
+  end
+  timer_1_is_counting = False
+
+  if(a9_wv_weldingon == True and wving_crater[5]!=0):
+    #crater end option
+    set_current_voltage(wving_crater[3],wving_crater[4])
+    sleep(wving_crater[5])
+    program_weld_on = False
+    set_current_voltage(ext_fun[1],ext_fun[0])
+    if(isHicomm):
+      write_port_register(202,0)
+      write_port_register(149,0)
+    else:
+      set_standard_digital_out(0,False)
+    end
+    while(get_wcr==True):
+      if(weld_onoff==True):
+        if(isHicomm):
+          write_port_register(202,0)
+          write_port_register(149,0)
+        else:
+          set_standard_digital_out(0,False)
+        end
+      end
+      sync()
+    end
+  end
+
+  kill CThread
+  kill DThread
+  kill TThread
+  timer_counting = False
+  wcr_counter = 0
+  wcr_counting = False
+  get_wcr = False
+  welding_off_t = 0
+
+  if(wv_seq[0] == 0 or wv_seq[0] == 3):
+    if(a9_wv_weldingon==True):
+      program_weld_on = False
+      if(isHicomm):
+        write_port_register(202,0)
+        write_port_register(149,0)
+      else:
+        set_standard_digital_out(0,False)
+      end
+      if(wv_weldpar[2]==1):
+        target_pos = feature_offset(get_actual_tcp_pose(),p[0,0,-0.01,0,0,0],wv_Line_Feature2)
+        movel(target_pos,0.5,0.01)
+      end
+    end
+  end
+  background_pose = [dumy_p,dumy_p,dumy_p]
+  move_p = background_pose
+  return sin_dir
+end

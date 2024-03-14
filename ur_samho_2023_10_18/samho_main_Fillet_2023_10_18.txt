@@ -2,7 +2,7 @@
    Init Variables
    BeforeStart
      'RobotVersion'
-     write_port_register(160,46)
+     write_port_register(160,45)
      Teaching for Touch
        g_current_p≔get_actual_tcp_pose()
        MoveJ
@@ -2069,14 +2069,6 @@
      write_port_register(weld_done_137,1)
      'MoveL'
      wv_direction≔1
-     If Auto_W_num[Auto_cur_cell]≥150
-       MoveL
-         Direction: Base
-           Until (distance)
-     ElseIf Auto_W_num[Auto_cur_cell]≥100
-       MoveL
-         Direction: Base
-           Until (distance)
      MoveL
        Direction: Tool Z-
          Until (distance)

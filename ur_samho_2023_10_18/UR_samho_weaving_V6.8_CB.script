@@ -1183,9 +1183,9 @@ def homeing(home_pos = get_inverse_kin(first_p_wp,qnear = home_pos_j),robot_dist
 
   if ( norm(current_cp[0]) > 380/1000):
     home_step = 15
-    m_dis = 40
+    m_dis = 35
     if ((norm(current_cp[0])-(20/1000)>(400)/1000) and (norm(current_cp[1])-norm(20/1000)>(350)/1000)):
-      m_dis = m_dis + 40
+      m_dis = m_dis + 35
     end
     get_sing = singularity(get_actual_tcp_pose(),hard_mode=True)
     if(pos_dir==-1 and get_sing==False):
