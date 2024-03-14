@@ -1,0 +1,2081 @@
+ Program
+   Init Variables
+   BeforeStart
+     'RobotVersion'
+     write_port_register(160,47)
+     Teaching for Touch
+       g_current_p≔get_actual_tcp_pose()
+       MoveJ
+         g_current_p
+       If  False 
+         MoveJ
+           'Home'
+           first_p
+           '3F Left Right'
+           left
+           right
+           '2F Left Right'
+           up_left
+           up_right
+           Packing_pos
+           pre_position
+           middle_pos
+           Mounting_pos
+           pre_mounting
+           'firstly touch center and side, side_L is side touch pose'
+           side_p_L
+           side_p_R
+           left_prep_p
+           right_prep_p
+           top_right
+           down_right
+           way_600_3F_VL1
+           way_3F_42
+           Waypoint_3
+       waypoint
+         first_p_wp≔first_p
+         home_pos_j≔get_inverse_kin(first_p,qnear=[0.788235068321228, -1.101443115864889, -1.2219904104815882, -2.3243168036090296, 1.506469488143921, 2.3651483058929443])
+         left_j≔get_inverse_kin(left,qnear=[1.0260889556530308, -1.5106289215345097, -1.741216762689402, -1.178962336228949, 1.4987324920877318, 1.8103628938054515])
+         right_j≔get_inverse_kin(right,qnear=[-0.04005625546610858, -1.5553040811514833, -1.9086689348599588, -0.877043115030812, 1.298887151057777, 2.511237649551841])
+         Packing_pos_wp≔Packing_pos
+         left_prep_p_v≔left_prep_p
+         right_prep_p_v≔right_prep_p
+         pre_position_wp≔pre_position
+         pre_mounting_wp≔pre_mounting
+         mounting_wp≔Mounting_pos
+     Setting
+       inv_inch_time≔0.4
+       a7_cell_bottom≔-50.2
+       get_center≔470
+       work_touch_dis≔50
+       cd_extra_dis≔6
+       side_pos_x≔-10
+       sec_touch_dis≔35
+       Touch_dis≔30
+       offset_2f_begin≔5
+       offset_3f_begin≔5
+       multi_offset_z≔3
+       simulation_mode≔ False 
+       tilt_deg_man≔10
+     Initialization
+       reset_revolution_counter()
+       get_center_bak≔get_center
+       welding_program≔ False 
+       vr2_p1≔p[0,0,0,0,0,0]
+       running_trig≔ False 
+       pb_comm_count≔0
+       pendant_hb≔read_port_register(161)
+       pause_trig≔ False 
+       multi_path≔1
+       reset_trig≔ False 
+       heartbeat≔0
+       back_2f≔ False 
+       t_time≔0
+       cd_offset≔35
+       write_port_register(144,0)
+       time_cal_trig≔ False 
+       current_2f≔0
+       A_cur_2f≔0
+       CD_MLR≔ True 
+       auto_on≔ False 
+       event_cal_on≔ False 
+       event_side_on≔ False 
+       Auto_trig≔ False 
+       lamp_trig≔ False 
+       calcu_trig≔ False 
+       current_path≔1
+       freedrive_trg≔ False 
+       Inch_trg≔ False 
+       wv_direction≔1
+       Move_trig≔ False 
+       CELL_ROBOT_DIST≔500
+       CELL_WIDTH≔700
+       CELL_BOTTOM≔a7_cell_bottom
+       scallop_info≔ False 
+       Carl_info≔ False 
+       touch_done_2f≔ False 
+       get_pose_side≔0
+       get_pose_side_t≔0
+       ba_trig≔ False 
+       touch_m_check≔0
+       basic_tilt_2f≔[30,5,0]
+       'basic_tilt_2f≔[0,0]'
+       basic_tilt_3f≔[0,-27,0]
+       'basic_tilt_3f≔[0,0]'
+     modbus_name
+       weld_done_137≔137
+       robot_ready_141≔141
+       cell_3f_2f_151≔151
+       cell_info_152≔152
+       weld_req_153≔153
+       touch_cell_155≔155
+       touch_num_156≔156
+       touch_done_157≔157
+       robot_move_163≔163
+       robot_pose_164≔164
+       work_type_165≔165
+       arc_onoff_168≔168
+       beforeafter_170≔170
+       return_done_240≔240
+       a0_Job_Mode≔0
+       position_3F≔1
+       position_2F≔2
+     cell_par
+       A≔1
+       B≔2
+       C≔3
+       c≔4
+       D≔5
+       d≔6
+       E≔7
+       A_VL1≔1
+       A_VL2≔2
+       A_VR1≔3
+       A_VR2≔4
+       A_HOR≔5
+       A_HOR_R≔7
+       A_HOR_ML≔6
+       A_HOR_MR≔8
+       A_HOR_M≔9
+       A_VL1_END≔10
+       A_VL2_END≔11
+       A_VR1_END≔12
+       A_VR2_END≔13
+       A_HOR_2path≔14
+       A_HOR_3path≔15
+       A_HOR_4path≔16
+       A_HOR_2path_CD≔17
+       A_HOR_3path_CD≔18
+       A_HOR_4path_CD≔19
+     Script: UR_samho_weaving_V6.7_CB.script
+     Reset
+       If Reset_Trig
+         Reset_Trig≔ False 
+         Call robotand_cell_initalizat
+         Auto_trig≔ False 
+         write_port_register(cell_3f_2f_151,0)
+         write_port_register(cell_info_152,0)
+         write_port_register(weld_req_153,0)
+         write_port_register(return_done_240,0)
+         write_port_register(robot_move_163,0)
+         write_port_register(robot_pose_164,0)
+         write_port_register(182,0)
+         write_port_register(185,0)
+         write_port_register(201,0)
+         write_port_register(202,0)
+     Welding_Init
+       'welding parameter initialization'
+       welding_etc
+         'Welding Parameter'
+         c5_wv_gap_y≔0
+         c6_wv_gap_cpm≔0
+         c9_wv_gap_freq≔0
+         c4_gap_enable≔0
+         c7_wv_gap≔[c4_gap_enable,c5_wv_gap_y,c6_wv_gap_cpm,c9_wv_gap_freq]
+     init_reset_modbus_server
+       set_tool_voltage(24)
+       write_port_register(163,0)
+       write_port_register(164,0)
+       'write_port_register(168,2)'
+       write_port_register(201,1)
+       write_port_register(202,0)
+   Robot Program
+     'Folder'
+     If simulation_mode
+       'work mode 2'
+       write_port_register(162,2)
+       touch_temp≔0
+     If a0_Job_Mode≟1
+       job mode 1
+         'JOB_MANUAL'
+         write_port_register(robot_ready_141,1)
+         If freedrive≟ True  and freedrive_trg≟ False 
+           freedrive_trg≔ True 
+           freedrive_mode()
+         ElseIf freedrive≟ False  and freedrive_trg≟ True 
+           end_freedrive_mode()
+           freedrive_trg≔ False 
+         'If save_tool≟ True  and Inch_trg≟ False '
+         If freedrive≟ True  and save_tool≟ True 
+           'If freedrive_trg'
+           Wait: 0.01
+         ElseIf a1_job_move≟1
+           'Manual - Move Home/Packing/Warmup'
+           If read_port_register(robot_pose_164)≟1
+             write_port_register(robot_ready_141,0)
+             homeing()
+             MoveJ
+               Packing_pos
+           ElseIf read_port_register(robot_pose_164)≟2
+             write_port_register(robot_ready_141,0)
+             homeing()
+           ElseIf read_port_register(robot_pose_164)≟3
+             write_port_register(robot_ready_141,0)
+             Warm-up
+               Loop 22 times
+                 MoveJ
+                   Warming_1
+                   Warming_2
+                   Warming_3
+                   Warming_4
+                   Wariming_5
+                   Warming_6
+                   Warming_7
+                   Warming_8
+                   Warming_9
+                   Warming_10
+                   Warming_11
+                   Warming_12
+                   Warming_13
+                   Warming_14
+             homeing()
+             Wait: 2.0
+           ElseIf read_port_register(robot_pose_164)≟4
+             write_port_register(robot_ready_141,0)
+             homeing()
+             MoveJ
+               pre_mounting
+               Mounting_pos
+           ElseIf read_port_register(robot_pose_164)≟5
+             c_p≔get_actual_tcp_pose()
+             MoveL
+               m_p≔pose_trans(c_p, p[0,0,0,d2r(tilt_deg_man),0,0])
+               m_p
+               m_p≔pose_trans(c_p, p[0,0,0,d2r(-tilt_deg_man),0,0])
+               m_p
+               c_p
+               m_p≔pose_trans(c_p, p[0,0,0,0,d2r(tilt_deg_man),0])
+               m_p
+               m_p≔pose_trans(c_p, p[0,0,0,0,d2r(-tilt_deg_man),0])
+               m_p
+               c_p
+               m_p≔pose_trans(c_p, p[0,0,0,0,0,d2r(tilt_deg_man)])
+               m_p
+               m_p≔pose_trans(c_p, p[0,0,0,0,0,d2r(-tilt_deg_man)])
+               m_p
+               c_p
+           Call Move_done
+       Call robotand_cell_initalizat
+     ElseIf a0_Job_Mode≟2
+       'JOB_AUTO'
+       auto_on≔ True 
+       Init
+         If freedrive_trg
+           end_freedrive_mode()
+           freedrive_trg≔ False 
+         write_port_register(202,0)
+         write_port_register(robot_ready_141,0)
+         homeing()
+         Wait: 0.2
+       Cell_calculation
+         'setting'
+         Auto_trig≔ False 
+         If Auto_trig≟ False 
+           If simulation_mode
+             b1_cell_info_L≔B
+             b1_cell_info_R≔B
+             b1_cell_select≔motion_num([A_VL1,A_VR1,A_HOR,0,0,0])
+             b1_cell_select≔motion_num([A_HOR,0,0,0,0,0])
+             EXT_flag1≔integer_to_binary_list(read_port_register(2048))
+             b1_cell_thickne≔6
+             A_Touch_trig_l≔touch_cal(b1_cell_info_L,b1_cell_info_R,b1_cell_select)
+             Auto_W_num≔cell_motion(A_Touch_trig_l,b1_cell_thickne,EXT_flag1,b1_cell_info_L,b1_cell_info_R)
+             'Auto_W_num≔cell_motion(b1_cell_select)'
+             Auto_total_cell≔cell_num(Auto_W_num)
+             Auto_trig≔ True 
+             A_sel_v≔Auto_W_num[0]
+           Else
+             b1_cell_info_L≔read_port_register(171)
+             b1_cell_info_R≔read_port_register(172)
+             EXT_flag1≔integer_to_binary_list(read_port_register(179))
+             b1_cell_select≔read_port_register(178)
+             b1_cell_thickne≔read_port_register(183)
+             A_Touch_trig_l≔touch_cal(b1_cell_info_L,b1_cell_info_R,b1_cell_select)
+             Auto_W_num≔cell_motion(A_Touch_trig_l,b1_cell_thickne,EXT_flag1,b1_cell_info_L,b1_cell_info_R)
+             Auto_total_cell≔cell_num(Auto_W_num)
+             Auto_trig≔ True 
+             A_sel_v≔Auto_W_num[0]
+           write_port_register(139,Auto_total_cell-1)
+       Auto_cur_cell≔0
+       Touch,Welding
+         'Calculate total sequence and decide way'
+         Calculate & Move & Touch
+           touch_init
+             Call cell_info
+             If simulation_mode
+               Call welding_parameter_sim
+             Else
+               Call welding_parameter_init
+               touch_temp≔read_port_register(180)
+               A_cur_2f≔0
+               wv_direction≔1
+             If touch_temp≟0
+               reset Variable
+                 A_Prepos_l=[p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0],p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0],p[0, 0, 0, 0, 0, 0],p[0, 0, 0, 0, 0, 0],p[0, 0, 0, 0, 0, 0],p[0, 0, 0, 0, 0, 0],p[0,0,0,0,0,0]]
+                 A_Touch_p=[p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0],p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0], p[0, 0, 0, 0, 0, 0],p[0, 0, 0, 0, 0, 0],p[0, 0, 0, 0, 0, 0],p[0, 0, 0, 0, 0, 0],p[0, 0, 0, 0, 0, 0],p[0,0,0,0,0,0]]
+               reset_par
+                 for_cal_rot≔p[0,0,0,0,0,0]
+                 for_cal_zr≔p[0,0,0,0,0,0]
+                 for_cal_zl≔p[0,0,0,0,0,0]
+                 for_cal_x_wel≔p[0,0,0,0,0,0]
+                 for_cal_xy≔p[0,0,0,0,0,0]
+                 for_cal_y_wel≔p[0,0,0,0,0,0]
+                 for_x_HOR≔p[0,0,0,0,0,0]
+                 for_x_HOR_R≔p[0,0,0,0,0,0]
+                 for_z_VL1≔p[0,0,0,0,0,0]
+                 for_z_VR1≔p[0,0,0,0,0,0]
+             write_port_register(143,0)
+             write_port_register(144,0)
+             timer_1: Reset
+             EXT_flag1≔integer_to_binary_list(read_port_register(179))
+             'Popup: hi'
+           If touch_temp≟0
+             write_port_register(138,0)
+             get_touch_position
+               get pre-positions
+                 If read_port_register(work_type_165)≟2
+                   freedrive touch
+                     move_i≔1
+                     Loop move_i<9
+                       Wait: 0.1
+                       Wait save_tool=LO
+                       If A_Touch_trig_l[move_i]≟ True 
+                         If move_i≟A_HOR
+                           If b1_cell_info_L≟B or b1_cell_info_L≟D or b1_cell_info_L≟d or A_Prepos_l[A_VL1]≟p[0,0,0,0,0,0]
+                             write_port_register(touch_cell_155,5)
+                             write_port_register(touch_num_156,1)
+                             Call touch_sub
+                             g_cp≔get_actual_tcp_pose()
+                             If g_cp[2]<(get_margin_z+a7_cell_bottom)/1000
+                               g_cp[2]=(get_margin_z+a7_cell_bottom)/1000
+                             A_Prepos_l[move_i]=g_cp
+                         ElseIf move_i≟A_HOR_ML
+                           If b1_cell_info_L≟B or b1_cell_info_L≟D or b1_cell_info_L≟d or A_Prepos_l[A_VL1]≟p[0,0,0,0,0,0]
+                             write_port_register(touch_cell_155,5)
+                             write_port_register(touch_num_156,3)
+                             Call touch_sub
+                             g_cp≔get_actual_tcp_pose()
+                             If g_cp[2]<(get_margin_z+a7_cell_bottom)/1000
+                               g_cp[2]=(get_margin_z+a7_cell_bottom)/1000
+                             A_Prepos_l[move_i]=g_cp
+                         ElseIf move_i≟A_HOR_R
+                           If b1_cell_info_L≟B or b1_cell_info_L≟D or b1_cell_info_L≟d or A_Prepos_l[A_VL1]≟p[0,0,0,0,0,0]
+                             write_port_register(touch_cell_155,5)
+                             write_port_register(touch_num_156,2)
+                             Call touch_sub
+                             g_cp≔get_actual_tcp_pose()
+                             If g_cp[2]<(get_margin_z+a7_cell_bottom)/1000
+                               g_cp[2]=(get_margin_z+a7_cell_bottom)/1000
+                             A_Prepos_l[move_i]=g_cp
+                         ElseIf move_i≟A_HOR_MR
+                           If b1_cell_info_L≟B or b1_cell_info_L≟D or b1_cell_info_L≟d or A_Prepos_l[A_VL1]≟p[0,0,0,0,0,0]
+                             write_port_register(touch_cell_155,5)
+                             write_port_register(touch_num_156,4)
+                             Call touch_sub
+                             g_cp≔get_actual_tcp_pose()
+                             If g_cp[2]<(get_margin_z+a7_cell_bottom)/1000
+                               g_cp[2]=(get_margin_z+a7_cell_bottom)/1000
+                             A_Prepos_l[move_i]=g_cp
+                         Else
+                           write_port_register(touch_cell_155,move_i)
+                           write_port_register(touch_num_156,1)
+                           Call touch_sub
+                           A_Prepos_l[move_i]=get_actual_tcp_pose()
+                           If move_i≤4
+                             write_port_register(touch_cell_155,move_i)
+                             write_port_register(touch_num_156,2)
+                             Wait: 0.1
+                             Call touch_sub
+                             A_Prepos_l[move_i+9]=get_actual_tcp_pose()
+                       Else
+                         A_Prepos_l[move_i]=p[0,0,0,0,0,0]
+                         If move_i≤4
+                           A_Prepos_l[move_i+7]=p[0,0,0,0,0,0]
+                         ElseIf move_i≟A_HOR
+                           A_Prepos_l[A_HOR_ML]=p[0,0,0,0,0,0]
+                           A_Prepos_l[A_HOR_MR]=p[0,0,0,0,0,0]
+                           A_Prepos_l[A_HOR_M]=p[0,0,0,0,0,0]
+                           A_Prepos_l[A_HOR_R]=p[0,0,0,0,0,0]
+                       move_i≔move_i+1
+                     change deg
+                       move_i≔1
+                       Loop move_i<14
+                         If A_Prepos_l[move_i]≠p[0,0,0,0,0,0]
+                           If move_i≟A_VL1 or move_i≟A_VL2 or move_i≟A_VL1_END or move_i≟A_VL2_END
+                             b2_left_par≔ True 
+                             b8_wv_2f≔ False 
+                             get_pos≔A_Prepos_l[move_i]
+                             get_org≔left
+                             get_pos≔p[get_pos[0],get_pos[1],get_pos[2],get_org[3],get_org[4],get_org[5]]
+                             pre_tp≔tilt_3f_fun(get_pos,[0,0],a5_f_hole[1])
+                           ElseIf move_i≟A_VR1 or move_i≟A_VR2 or move_i≟A_VR1_END or move_i≟A_VR2_END
+                             b2_left_par≔ False 
+                             b8_wv_2f≔ False 
+                             get_pos≔A_Prepos_l[move_i]
+                             get_org≔right
+                             get_pos≔p[get_pos[0],get_pos[1],get_pos[2],get_org[3],get_org[4],get_org[5]]
+                             pre_tp≔tilt_3f_fun(get_pos,[0,0],a5_f_hole[1])
+                           ElseIf move_i≟A_HOR or move_i≟A_HOR_ML
+                             b8_wv_2f≔ True 
+                             b2_left_par≔ True 
+                             get_pos≔A_Prepos_l[move_i]
+                             get_org≔up_left
+                             get_pos≔p[get_pos[0],get_pos[1],get_pos[2],get_org[3],get_org[4],get_org[5]]
+                             pre_tp≔tilt_2f_fun(get_pos,[0,0], True , True )
+                           ElseIf move_i≟A_HOR_R or move_i≟A_HOR_MR
+                             b8_wv_2f≔ True 
+                             b2_left_par≔ False 
+                             get_pos≔A_Prepos_l[move_i]
+                             get_org≔up_right
+                             get_pos≔p[get_pos[0],get_pos[1],get_pos[2],get_org[3],get_org[4],get_org[5]]
+                             pre_tp≔tilt_2f_fun(get_pos,[0,0], False , True )
+                           A_Prepos_l[move_i]=pre_tp
+                         move_i≔move_i+1
+                     homeing()
+                     Wait read_port_register(170)≟1
+                     write_port_register(170,0)
+                 Else
+                   value from pendant
+                     move_i≔1
+                     'calcu_trig≔ True '
+                     Touch_FrontandSide
+                       If EXT_flag1[11]≟ True 
+                         Touch front and side_Right
+                           move_center≔pose_add(first_p_wp, p[-first_p_wp[0]+(get_center-work_touch_dis)/1000,0,0,0,0,0])
+                           get_pose_side_t≔0
+                           'var_1≔center_height+a7_cell_bottom'
+                           move_center[2]=(center_height+a7_cell_bottom)/1000
+                           'move_center≔pose_add(first_p_wp, p[-first_p_wp[0]+(get_center-30)/1000,0,-50/1000,0,0,0])'
+                           MoveL
+                             move_center
+                           touch_center≔contact_fun(p[0,0,0,0,0,0],[1,0,0],20000,20,20)
+                           direction(p[0,0,0,0,0,0],[-1,0,0],10,180,200)
+                           get_center≔touch_center[0]*1000
+                           a7_f_distance≔get_center
+                           move_center≔pose_add(move_center,p[0,sec_touch_dis/1000,0,0,0,0])
+                           move_center[0]=touch_center[0]-20/1000
+                           MoveL
+                             move_center
+                           touch_center2≔contact_fun(p[0,0,0,0,0,0],[1,0,0],20000,20,20)
+                           center_line≔get_feature_Line(touch_center,touch_center2)
+                           event_cal_on≔ True 
+                           direction(p[0,0,0,0,0,0],[-1,0,0],10,180,200)
+                           'center_line≔p[0,0,0,center_line[3],center_line[4],center_line[5]]'
+                           homeing()
+                           b2_left_par≔ False 
+                           b8_wv_2f≔ False 
+                           b2_cell≔b1_cell_info_R
+                           get_pos≔get_lr(side_p_R,a6_f_width,[35,0,0,0,0],a7_f_distance,b2_left_par,b8_wv_2f,Touch_dis,get_margin_z,get_pose_side_t,30,0,center_line, True )
+                           'pre_tp≔tilt_3f_fun(get_pos,[0,0],0)'
+                           pre_tp≔get_pos
+                           pre_tp≔pose_add(pre_tp, p[side_pos_x/1000,0,0,0,0,0])
+                           pre_tp[2]=(center_height+a7_cell_bottom)/1000
+                           MoveL
+                             pre_tp
+                           touch_side≔contact_fun(p[0,0,0,0,0,0],[0,-1,0],20000,13,13)
+                           touch_side≔get_feature_pose(touch_side,center_line)
+                           direction(p[0,0,0,0,0,0],[0,1,0],10,180,200)
+                           write_welder(4, False )
+                           get_pose_side_t≔touch_side[1]*1000
+                           get_pose_side_t≔get_pose_side_t+(a6_f_width/2)
+                           event_side_on≔ True 
+                           MoveL
+                             Direction: Base
+                               Until (distance)
+                           homeing()
+                       Else
+                         Touch front and side_Left
+                           move_center≔pose_add(first_p_wp, p[-first_p_wp[0]+(get_center-work_touch_dis)/1000,0,0,0,0,0])
+                           get_pose_side_t≔0
+                           'var_1≔center_height+a7_cell_bottom'
+                           move_center[2]=(center_height+a7_cell_bottom)/1000
+                           'move_center≔pose_add(first_p_wp, p[-first_p_wp[0]+(get_center-30)/1000,0,-50/1000,0,0,0])'
+                           MoveL
+                             move_center
+                           touch_center≔contact_fun(p[0,0,0,0,0,0],[1,0,0],20000,20,20)
+                           direction(p[0,0,0,0,0,0],[-1,0,0],10,180,200)
+                           get_center≔touch_center[0]*1000
+                           a7_f_distance≔get_center
+                           move_center≔pose_add(move_center,p[0,sec_touch_dis/1000,0,0,0,0])
+                           move_center[0]=touch_center[0]-20/1000
+                           MoveL
+                             move_center
+                           touch_center2≔contact_fun(p[0,0,0,0,0,0],[1,0,0],20000,20,20)
+                           center_line≔get_feature_Line(touch_center,touch_center2)
+                           event_cal_on≔ True 
+                           direction(p[0,0,0,0,0,0],[-1,0,0],10,180,200)
+                           'center_line≔p[0,0,0,center_line[3],center_line[4],center_line[5]]'
+                           homeing()
+                           b2_left_par≔ True 
+                           b8_wv_2f≔ False 
+                           b2_cell≔b1_cell_info_L
+                           get_pos≔get_lr(side_p_L,a6_f_width,[35,0,0,0,0],a7_f_distance,b2_left_par,b8_wv_2f,Touch_dis,get_margin_z,get_pose_side_t,30,0,center_line, True )
+                           'pre_tp≔tilt_3f_fun(get_pos,[0,0],0)'
+                           pre_tp≔get_pos
+                           pre_tp≔pose_add(pre_tp, p[side_pos_x/1000,0,0,0,0,0])
+                           pre_tp[2]=(center_height+a7_cell_bottom)/1000
+                           MoveL
+                             pre_tp
+                           touch_side≔contact_fun(p[0,0,0,0,0,0],[0,1,0],20000,13,13)
+                           touch_side≔get_feature_pose(touch_side,center_line)
+                           direction(p[0,0,0,0,0,0],[0,-1,0],10,180,200)
+                           write_welder(4, False )
+                           get_pose_side_t≔touch_side[1]*1000
+                           get_pose_side_t≔get_pose_side_t-(a6_f_width/2)
+                           event_side_on≔ True 
+                           MoveL
+                             Direction: Base
+                               Until (distance)
+                           homeing()
+                     'Wait calcu_trig≟ False '
+                     Wait event_side_on≟ False 
+               move and touch
+                 Touch Move
+                   HOR_L
+                     If A_Prepos_l[A_HOR]≠p[0,0,0,0,0,0]
+                       b2_left_par≔ True 
+                       b8_wv_2f≔ True 
+                       b7_tilt_degree≔[0,0,0]
+                       A_sel_v≔A_HOR
+                       wv_direction≔1
+                       Call MoveandTouchFun_2f
+                       'A_Touch_p[A_sel_v]=pose_trans(A_Touch_p[A_sel_v],p[(-Touch_dis+2)/1000,0,0,0,0,0])'
+                       If b1_cell_info_L≟A or b1_cell_info_L≟C or b1_cell_info_L≟c
+                         If A_Prepos_l[A_VL1]≟p[0,0,0,0,0,0]
+                           'direction(p[0,0,0,0,0,0],[0,0,1],30,120,160)'
+                           g_tp≔A_Prepos_l[A_HOR]
+                           'MoveL'
+                           Folder
+                             g_cp≔get_actual_tcp_pose()
+                             g_cp≔pose_trans(g_cp, p[0,0,0,d2r(12),d2r(5),0])
+                             MoveL
+                               g_cp
+                           for_x_HOR≔contact_fun(A_Touch_p[A_sel_v],[-1*wv_direction,0,0],10000,15,15,  False)
+                           direction(p[0,0,0,0,0,0],[0,-1,0],20,120,160)
+                           write_welder(4, False )
+                         Else
+                           for_x_HOR≔p[0,0,0,0,0,0]
+                       ElseIf b1_cell_info_L≟E
+                         direction(p[0,0,0,0,0,0],[0,1,0],40,120,160)
+                         direction(p[0,0,0,0,0,0],[1,0,0],20,120,160)
+                         for_x_HOR≔contact_fun(A_Touch_p[A_sel_v],[0,-1,0],10000,15,15,  False)
+                         write_welder(4, False )
+                         direction(p[0,0,0,0,0,0],[0,1,0],20,120,160)
+                         direction(p[0,0,0,0,0,0],[-1,0,0],40,120,160)
+                       If point_dist(A_Prepos_l[A_HOR], A_Prepos_l[A_VL1])>0.032
+                         homeing()
+                   VL1
+                     If A_Prepos_l[A_VL1]≠p[0,0,0,0,0,0]
+                       b2_left_par≔ True 
+                       b8_wv_2f≔ False 
+                       b7_tilt_degree≔[0,0,0]
+                       A_sel_v≔A_VL1
+                       A_sel_v_end≔A_VL1_END
+                       b2_par_cd≔0
+                       If b1_cell_info_L≟A or b1_cell_info_L≟C or b1_cell_info_L≟c
+                         Scallup_check≔ True 
+                       Else
+                         Scallup_check≔ False 
+                       Call MoveandTouchFun_3f
+                       If b1_cell_info_L≟A or b1_cell_info_L≟C or b1_cell_info_L≟c
+                         If A_Prepos_l[A_HOR]≟p[0,0,0,0,0,0]
+                           direction(p[0,0,0,0,0,0],[0,-1,0],8,120,160)
+                           'var_3≔get_actual_tcp_pose()'
+                           AAgcp≔get_actual_tcp_pose()
+                           AAgangle≔up_left
+                           AAgtp≔p[AAgcp[0],AAgcp[1],AAgcp[2],AAgangle[3],AAgangle[4],AAgangle[5]]
+                           MoveL
+                             AAgtp
+                           'ori_move(var_3,up_left)'
+                           for_z_VL1≔contact_fun(p[0,0,0,0,0,0],[0,0,-1],10000,15,15,  False)
+                           direction(p[0,0,0,0,0,0],[0,0,1],20,120,160)
+                           write_welder(4, False )
+                         Else
+                           for_z_VL1≔p[0,0,0,0,0,0]
+                   HOR_ML
+                     If A_Prepos_l[A_HOR_ML]≠p[0,0,0,0,0,0]
+                       b2_left_par≔ True 
+                       b8_wv_2f≔ True 
+                       b7_tilt_degree≔[0,0,0]
+                       A_sel_v≔A_HOR_ML
+                       If b1_cell_info_L≟C or b1_cell_info_L≟D
+                         wv_direction≔1
+                         Call MoveFun
+                         for_cal_xy≔contact_fun(p[0,0,0,0,0,0],[1,0,0],20000,20,20)
+                         direction(p[0,0,0,0,0,0],[-1,0,0],15,120,160)
+                         direction(p[0,0,0,0,0,0],[0,-1,0],60,120,160)
+                         direction(p[0,0,0,0,0,0],[1,0,0],20,120,160)
+                         for_cal_x_wel≔contact_fun(p[0,0,0,0,0,0],[0,1,0],20000,20,20)
+                         direction(p[0,0,0,0,0,0],[0,-1,0],20,120,160)
+                         for_cal_zl≔contact_fun(p[0,0,0,0,0,0],[0,0,-1],20000,20,20)
+                         direction(p[0,0,0,0,0,0],[0,0,1],20,120,160)
+                         If A_Prepos_l[A_VL2]≟p[0,0,0,0,0,0]
+                           for_cal_y_wel≔contact_fun(p[0,0,0,0,0,0],[1,0,0],20000,20,20)
+                           direction(p[0,0,0,0,0,0],[-1,0,0],30,120,160)
+                         for_cal_rot≔A_Touch_p[A_HOR]
+                         A_Touch_p[A_sel_v]=p[for_cal_xy[0],for_cal_xy[1],for_cal_zl[2],for_cal_rot[3],for_cal_rot[4],for_cal_rot[5]]
+                         A_Touch_p[A_sel_v]=pose_trans(A_Touch_p[A_sel_v], p[Touch_dis/1000,0,0,0,0,0])
+                         write_welder(4, False )
+                       Else
+                         wv_direction≔1
+                         for_cal_rot≔A_Touch_p[A_HOR]
+                         Call MoveFun_cd
+                         for_cal_y_wel≔contact_fun(p[0,0,0,0,0,0],[1,0,0],20000,20,20)
+                         for_cal_y_wel[2]=for_cal_rot[2]
+                         dir_x_cal≔get_feature_Line(for_cal_rot,for_cal_y_wel)
+                         direction(p[0,0,0,0,0,0],[-1,0,0],40,120,160)
+                         direction(p[0,0,0,0,0,0],[0,-1,0],80,120,160)
+                         for_cal_y_wel≔contact_fun(p[0,0,0,0,0,0],[1,0,0],20000,20,20)
+                         direction(p[0,0,0,0,0,0],[-1,0,0],5,120,160)
+                         direction(p[0,0,0,0,0,0],[0,1,0],50,120,160)
+                         direction(p[0,0,0,0,0,0],[1,0,0],7,120,160)
+                         for_cal_x_wel≔contact_fun(p[0,0,0,0,0,0],[0,-1,0],20000,20,20)
+                         get_ml≔get_feature_pose(for_cal_x_wel,for_cal_rot)
+                         'A_Touch_p[A_sel_v]=pose_trans(for_cal_rot,p[get_ml[0]-cd_offset/1000,0,0,0,0,0])'
+                         A_Touch_p[A_sel_v]=feature_offset(for_cal_rot,p[0,get_ml[0]+(-cd_offset+cd_extra_dis)/1000,0,0,0,0],dir_x_cal)
+                         direction(p[0,0,0,0,0,0],[0,1,0],5,120,160)
+                         direction(p[0,0,0,0,0,0],[-1,0,0],20,120,160)
+                         write_welder(4, False )
+                     Else
+                       homeing()
+                   VL2
+                     If A_Prepos_l[A_VL2]≠p[0,0,0,0,0,0]
+                       b2_left_par≔ True 
+                       b8_wv_2f≔ False 
+                       b7_tilt_degree≔basic_tilt_3f
+                       A_sel_v≔A_VL2
+                       A_sel_v_end≔A_VL2_END
+                       b2_par_cd≔1
+                       If b1_cell_info_L≟A or b1_cell_info_L≟C or b1_cell_info_L≟c
+                         Scallup_check≔ True 
+                       Else
+                         Scallup_check≔ False 
+                       If b1_cell_info_L≟d or b1_cell_info_L≟c
+                         Halt
+                       Else
+                         If A_Touch_p[A_VL1]≟p[0,0,0,0,0,0]
+                           Call MoveandTouchFun_3f
+                           If A_Prepos_l[A_HOR_ML]≟p[0,0,0,0,0,0]
+                             direction(p[0,0,0,0,0,0],[0,-1,0],8,120,160)
+                             AAgcp≔get_actual_tcp_pose()
+                             AAgangle≔up_left
+                             AAgtp≔p[AAgcp[0],AAgcp[1],AAgcp[2],AAgangle[3],AAgangle[4],AAgangle[5]]
+                             MoveL
+                               AAgtp
+                             'ori_move(get_actual_tcp_pose(),up_left)'
+                             for_cal_zl≔contact_fun(p[0,0,0,0,0,0],[0,0,-1],20000,20,20)
+                           touch_tmp≔A_Touch_p[A_sel_v]
+                           touch_tmp[2]=for_cal_zl[2]
+                           A_Touch_p[A_sel_v]=touch_tmp
+                           for_cal_y_wel≔A_Touch_p[A_sel_v]
+                           for_cal_x_wel≔A_Touch_p[A_sel_v]
+                         Else
+                           Call MoveFun
+                           for_cal_y_wel≔contact_fun(p[0,0,0,0,0,0],[1,0,0],20000,20,20)
+                           direction(p[0,0,0,0,0,0],[-1,0,0],40,120,160)
+                           If A_Prepos_l[A_HOR_ML]≟p[0,0,0,0,0,0]
+                             direction(p[0,0,0,0,0,0],[0,1,0],60,120,160)
+                             var_2≔contact_fun(p[0,0,0,0,0,0],[1,0,0],20000,20,20)
+                             direction(p[0,0,0,0,0,0],[-1,0,0],5,120,160)
+                             direction(p[0,0,0,0,0,0],[0,-1,0],60,120,160)
+                             direction(p[0,0,0,0,0,0],[1,0,0],10,120,160)
+                             for_cal_x_wel≔contact_fun(p[0,0,0,0,0,0],[0,1,0],20000,20,20)
+                             direction(p[0,0,0,0,0,0],[0,-1,0],20,120,160)
+                             AAgcp≔get_actual_tcp_pose()
+                             AAgangle≔up_left
+                             AAgtp≔p[AAgcp[0],AAgcp[1],AAgcp[2],AAgangle[3],AAgangle[4],AAgangle[5]]
+                             MoveL
+                               AAgtp
+                             'ori_move(get_actual_tcp_pose(),up_left)'
+                             for_cal_zl≔contact_fun(p[0,0,0,0,0,0],[0,0,-1],20000,20,20)
+                             direction(p[0,0,0,0,0,0],[0,0,1],10,120,160)
+                             direction(p[0,0,0,0,0,0],[-1,0,0],20,120,160)
+                           for_cal_rot≔A_Touch_p[A_VL1]
+                           A_Touch_p[A_sel_v]=p[for_cal_y_wel[0],for_cal_x_wel[1],for_cal_zl[2],for_cal_rot[3],for_cal_rot[4],for_cal_rot[5]]
+                           write_welder(4, False )
+                       b2_par_cd≔0
+                       homeing()
+                     Else
+                       homeing()
+                   HOR_R
+                     If A_Prepos_l[A_HOR_R]≠p[0,0,0,0,0,0]
+                       b2_left_par≔ False 
+                       b8_wv_2f≔ True 
+                       b7_tilt_degree≔[0,0,0]
+                       A_sel_v≔A_HOR_R
+                       wv_direction≔-1
+                       Call MoveandTouchFun_2f
+                       'A_Touch_p[A_sel_v]=pose_trans(A_Touch_p[A_sel_v],p[(Touch_dis-2)/1000,0,0,0,0,0])'
+                       If b1_cell_info_R≟A or b1_cell_info_R≟C or b1_cell_info_R≟c
+                         If A_Prepos_l[A_VR1]≟p[0,0,0,0,0,0]
+                           'direction(p[0,0,0,0,0,0],[0,0,1],30,120,160)'
+                           g_tp≔A_Prepos_l[A_HOR_R]
+                           Folder
+                             g_cp≔get_actual_tcp_pose()
+                             g_cp≔pose_trans(g_cp, p[0,0,0,d2r(-12),d2r(5),0])
+                             MoveL
+                               g_cp
+                           'MoveL'
+                           for_x_HOR_R≔contact_fun(A_Touch_p[A_HOR_R],[-1*wv_direction,0,0],10000,15,15,  False)
+                           direction(p[0,0,0,0,0,0],[0,1,0],20,120,160)
+                           write_welder(4, False )
+                         Else
+                           for_x_HOR_R≔p[0,0,0,0,0,0]
+                       wv_direction≔1
+                       If point_dist(A_Prepos_l[A_HOR_R], A_Prepos_l[A_VR1])>0.032
+                         homeing()
+                   VR1
+                     If A_Prepos_l[A_VR1]≠p[0,0,0,0,0,0]
+                       b2_left_par≔ False 
+                       b8_wv_2f≔ False 
+                       b7_tilt_degree≔basic_tilt_3f
+                       A_sel_v≔A_VR1
+                       A_sel_v_end≔A_VR1_END
+                       b2_par_cd≔0
+                       If b1_cell_info_R≟A or b1_cell_info_R≟C or b1_cell_info_R≟c
+                         Scallup_check≔ True 
+                       Else
+                         Scallup_check≔ False 
+                       Call MoveandTouchFun_3f
+                       If b1_cell_info_R≟A or b1_cell_info_R≟C or b1_cell_info_R≟c
+                         If A_Prepos_l[A_HOR_R]≟p[0,0,0,0,0,0]
+                           direction(p[0,0,0,0,0,0],[0,1,0],8,120,160)
+                           AAgcp≔get_actual_tcp_pose()
+                           AAgangle≔up_right
+                           AAgtp≔p[AAgcp[0],AAgcp[1],AAgcp[2],AAgangle[3],AAgangle[4],AAgangle[5]]
+                           MoveL
+                             AAgtp
+                           'ori_move(get_actual_tcp_pose(),up_right)'
+                           for_z_VR1≔contact_fun(p[0,0,0,0,0,0],[0,0,-1],10000,15,15,  False)
+                           direction(p[0,0,0,0,0,0],[0,0,1],20,120,160)
+                           write_welder(4, False )
+                         Else
+                           for_z_VR1≔p[0,0,0,0,0,0]
+                   HOR_MR
+                     If A_Prepos_l[A_HOR_MR]≠p[0,0,0,0,0,0]
+                       INIT
+                         b2_left_par≔ False 
+                         b8_wv_2f≔ True 
+                         b7_tilt_degree≔[0,0,0]
+                         A_sel_v≔A_HOR_MR
+                       If b1_cell_info_R≟C or b1_cell_info_R≟D
+                         wv_direction≔-1
+                         Call MoveFun_cd
+                         for_cal_xy≔contact_fun(p[0,0,0,0,0,0],[1,0,0],20000,20,20)
+                         direction(p[0,0,0,0,0,0],[-1,0,0],15,120,160)
+                         direction(p[0,0,0,0,0,0],[0,1,0],60,120,160)
+                         direction(p[0,0,0,0,0,0],[1,0,0],20,120,160)
+                         for_cal_x_wel≔contact_fun(p[0,0,0,0,0,0],[0,-1,0],20000,20,20)
+                         direction(p[0,0,0,0,0,0],[0,1,0],20,120,160)
+                         for_cal_zr≔contact_fun(p[0,0,0,0,0,0],[0,0,-1],20000,20,20)
+                         direction(p[0,0,0,0,0,0],[0,0,1],20,120,160)
+                         If A_Prepos_l[A_VR2]≟p[0,0,0,0,0,0]
+                           for_cal_y_wel≔contact_fun(p[0,0,0,0,0,0],[1,0,0],20000,20,20)
+                           direction(p[0,0,0,0,0,0],[-1,0,0],8,120,160)
+                         for_cal_rot≔A_Touch_p[A_HOR_R]
+                         A_Touch_p[A_sel_v]=p[for_cal_xy[0],for_cal_xy[1],for_cal_zr[2],for_cal_rot[3],for_cal_rot[4],for_cal_rot[5]]
+                         A_Touch_p[A_sel_v]=pose_trans(A_Touch_p[A_sel_v], p[-Touch_dis/1000,0,0,0,0,0])
+                         write_welder(4, False )
+                       Else
+                         wv_direction≔-1
+                         for_cal_rot≔A_Touch_p[A_HOR_R]
+                         Call MoveFun_cd
+                         for_cal_y_wel≔contact_fun(p[0,0,0,0,0,0],[1,0,0],20000,20,20)
+                         vr2_p1≔for_cal_y_wel
+                         for_cal_y_wel[2]=for_cal_rot[2]
+                         dir_x_cal≔get_feature_Line(for_cal_rot,for_cal_y_wel)
+                         vr2_p2≔feature_offset(vr2_p1,p[0,0.02,0,0,0,0],dir_x_cal)
+                         direction(p[0,0,0,0,0,0],[-1,0,0],40,120,160)
+                         direction(p[0,0,0,0,0,0],[0,1,0],80,120,160)
+                         for_cal_y_wel≔contact_fun(p[0,0,0,0,0,0],[1,0,0],20000,20,20)
+                         direction(p[0,0,0,0,0,0],[-1,0,0],5,120,160)
+                         direction(p[0,0,0,0,0,0],[0,-1,0],50,120,160)
+                         direction(p[0,0,0,0,0,0],[1,0,0],7,120,160)
+                         for_cal_x_wel≔contact_fun(p[0,0,0,0,0,0],[0,1,0],20000,20,20)
+                         vr2_p3≔for_cal_x_wel
+                         get_ml≔get_feature_pose(for_cal_x_wel,for_cal_rot)
+                         'A_Touch_p[A_sel_v]=pose_trans(for_cal_rot,p[get_ml[0]+cd_offset/1000,0,0,0,0,0])'
+                         A_Touch_p[A_sel_v]=feature_offset(for_cal_rot,p[0,-get_ml[0]+(-cd_offset+cd_extra_dis)/1000,0,0,0,0],dir_x_cal)
+                         vr2_p4≔A_Touch_p[A_HOR_MR]
+                         direction(p[0,0,0,0,0,0],[0,-1,0],5,120,160)
+                         direction(p[0,0,0,0,0,0],[-1,0,0],20,120,160)
+                         write_welder(4, False )
+                       wv_direction≔1
+                   VR2
+                     If A_Prepos_l[A_VR2]≠p[0,0,0,0,0,0]
+                       Init
+                         b2_left_par≔ False 
+                         b8_wv_2f≔ False 
+                         b7_tilt_degree≔basic_tilt_3f
+                         A_sel_v≔A_VR2
+                         A_sel_v_end≔A_VR2_END
+                         b2_par_cd≔1
+                       If b1_cell_info_R≟A or b1_cell_info_R≟C or b1_cell_info_R≟c
+                         Scallup_check≔ True 
+                       Else
+                         Scallup_check≔ False 
+                       If b1_cell_info_R≟d or b1_cell_info_R≟c
+                         If vr2_p1≟p[0,0,0,0,0,0]
+                           Call MoveFun_cd
+                           vr2_p1≔contact_fun(p[0,0,0,0,0,0],[1,0,0],20000,20,20)
+                           direction(p[0,0,0,0,0,0],[-1,0,0],20,120,160)
+                           direction(p[0,0,0,0,0,0],[0,1,0],10,120,160)
+                           vr2_p2≔contact_fun(p[0,0,0,0,0,0],[1,0,0],20000,20,20)
+                           direction(p[0,0,0,0,0,0],[-1,0,0],14,120,160)
+                           vr2_p3≔contact_fun(p[0,0,0,0,0,0],[0,1,0],20000,20,20)
+                           direction(p[0,0,0,0,0,0],[0,-1,0],30,120,160)
+                           direction(p[0,0,0,0,0,0],[-1,0,0],20,120,160)
+                           vr2_p4≔contact_fun(p[0,0,0,0,0,0],[0,0,-1],20000,20,20)
+                           direction(p[0,0,0,0,0,0],[0,0,1],40,120,160)
+                           A_Touch_p[A_sel_v]=touch_xyz_get_middle(vr2_p1,vr2_p2,vr2_p3,vr2_p4)
+                           var_4≔A_Touch_p[A_sel_v]
+                           var_4≔pose_trans(var_4, p[a6_callar_vert/1000,0,0,0,0,0])
+                           var_5≔get_actual_tcp_pose()
+                           var_5[2]=var_4[2]
+                           var_5≔pose_trans(var_5, p[0,0,0,0,d2r(10),0])
+                           MoveL
+                             var_5
+                           vr2_p1_up≔contact_fun(p[0,0,0,0,0,0],[1,0,0],20000,20,20)
+                           direction(p[0,0,0,0,0,0],[-1,0,0],20,120,160)
+                           direction(p[0,0,0,0,0,0],[0,1,0],10,120,160)
+                           vr2_p2_up≔contact_fun(p[0,0,0,0,0,0],[1,0,0],20000,20,20)
+                           direction(p[0,0,0,0,0,0],[-1,0,0],14,120,160)
+                           vr2_p3_up≔contact_fun(p[0,0,0,0,0,0],[0,1,0],20000,20,20)
+                           direction(p[0,0,0,0,0,0],[0,-1,0],30,120,160)
+                           direction(p[0,0,0,0,0,0],[-1,0,0],20,120,160)
+                         A_Touch_p[A_sel_v+9]=touch_4point(vr2_p1_up,vr2_p2_up,vr2_p3_up)
+                         A_Touch_p[A_sel_v+9]=ori_pose(A_Touch_p[A_sel_v+9],A_Touch_p[A_sel_v])
+                       Else
+                         If A_Touch_p[A_VR1]≟p[0,0,0,0,0,0]
+                           Call MoveandTouchFun_3f
+                           touch_tmp≔A_Touch_p[A_sel_v]
+                           If A_Prepos_l[A_HOR_MR]≟p[0,0,0,0,0,0]
+                             direction(p[0,0,0,0,0,0],[0,1,0],8,120,160)
+                             AAgcp≔get_actual_tcp_pose()
+                             AAgangle≔up_right
+                             AAgtp≔p[AAgcp[0],AAgcp[1],AAgcp[2],AAgangle[3],AAgangle[4],AAgangle[5]]
+                             MoveL
+                               AAgtp
+                             'ori_move(get_actual_tcp_pose(),up_right)'
+                             for_cal_zr≔contact_fun(p[0,0,0,0,0,0],[0,0,-1],20000,20,20)
+                           touch_tmp[2]=for_cal_zr[2]
+                           A_Touch_p[A_sel_v]=touch_tmp
+                           for_cal_y_wel≔A_Touch_p[A_sel_v]
+                           for_cal_x_wel≔A_Touch_p[A_sel_v]
+                         Else
+                           Call MoveFun
+                           for_cal_y_wel≔contact_fun(p[0,0,0,0,0,0],[1,0,0],20000,20,20)
+                           direction(p[0,0,0,0,0,0],[-1,0,0],40,120,160)
+                           If A_Prepos_l[A_HOR_MR]≟p[0,0,0,0,0,0]
+                             direction(p[0,0,0,0,0,0],[0,-1,0],60,120,160)
+                             var_2≔contact_fun(p[0,0,0,0,0,0],[1,0,0],20000,20,20)
+                             direction(p[0,0,0,0,0,0],[-1,0,0],5,120,160)
+                             direction(p[0,0,0,0,0,0],[0,1,0],60,120,160)
+                             direction(p[0,0,0,0,0,0],[1,0,0],10,120,160)
+                             for_cal_x_wel≔contact_fun(p[0,0,0,0,0,0],[0,-1,0],20000,20,20)
+                             direction(p[0,0,0,0,0,0],[0,1,0],20,120,160)
+                             AAgcp≔get_actual_tcp_pose()
+                             AAgangle≔up_right
+                             AAgtp≔p[AAgcp[0],AAgcp[1],AAgcp[2],AAgangle[3],AAgangle[4],AAgangle[5]]
+                             MoveL
+                               AAgtp
+                             'ori_move(get_actual_tcp_pose(),up_right)'
+                             for_cal_zr≔contact_fun(p[0,0,0,0,0,0],[0,0,-1],20000,20,20)
+                             direction(p[0,0,0,0,0,0],[0,0,1],20,120,160)
+                             direction(p[0,0,0,0,0,0],[-1,0,0],20,120,160)
+                           for_cal_rot≔A_Touch_p[A_VR1]
+                           A_Touch_p[A_sel_v]=p[for_cal_y_wel[0],for_cal_x_wel[1],for_cal_zr[2],for_cal_rot[3],for_cal_rot[4],for_cal_rot[5]]
+                           write_welder(4, False )
+                       b2_par_cd≔0
+                       homeing()
+                     Else
+                       homeing()
+                   write_welder(4,False)
+                   'If A_Prepos_l[A_VR2]≠p[0,0,0,0,0,0]'
+                 Touch After Offset
+                   touch_after_offset
+                     HOR
+                       If A_Prepos_l[A_HOR]≠p[0,0,0,0,0,0]
+                         If b1_cell_info_L≟A or b1_cell_info_L≟C or b1_cell_info_L≟c
+                           If for_x_HOR≟p[0,0,0,0,0,0]
+                             for_x_HOR≔A_Touch_p[A_VL1]
+                           If for_x_HOR≠p[0,0,0,0,0,0]
+                             x_diff≔get_feature_pose(for_x_HOR,A_Touch_p[A_HOR])
+                             A_Touch_p[A_HOR]=pose_trans(A_Touch_p[A_HOR], p[x_diff[0],0,0,0,0,0])
+                         A_Touch_p[A_HOR]=pose_trans(A_Touch_p[A_HOR], p[offset_2f_begin/1000,0,0,0,0,0])
+                     VL1
+                       If A_Prepos_l[A_VL1]≠p[0,0,0,0,0,0]
+                         If b1_cell_info_L≟A or b1_cell_info_L≟C or b1_cell_info_L≟c
+                           '3f only does not apply offset'
+                           If for_z_VL1≟p[0,0,0,0,0,0]
+                             for_z_VL1≔A_Touch_p[A_HOR]
+                           Comment
+                           If for_z_VL1≠p[0,0,0,0,0,0]
+                             z_diff≔get_feature_pose(for_z_VL1,A_Touch_p[A_VL1])
+                             A_Touch_p[A_VL1]=pose_trans(A_Touch_p[A_VL1], p[z_diff[0],0,0,0,0,0])
+                           'A_Touch_p[A_VL1]=put_pose(A_Touch_p[A_VL1],2, for_z_VL1[2])'
+                         A_Touch_p[A_VL1]=pose_trans(A_Touch_p[A_VL1], p[offset_3f_begin/1000,0,0,0,0,0])
+                     VL2
+                       If A_Prepos_l[A_VL2]≠p[0,0,0,0,0,0]
+                         A_Touch_p[A_VL2]=pose_trans(A_Touch_p[A_VL2], p[offset_3f_begin/1000,0,0,0,0,0])
+                     HOR_R
+                       If A_Prepos_l[A_HOR_R]≠p[0,0,0,0,0,0]
+                         If b1_cell_info_R≟A or b1_cell_info_R≟C or b1_cell_info_R≟c
+                           If for_x_HOR_R≟p[0,0,0,0,0,0]
+                             for_x_HOR_R≔A_Touch_p[A_VR1]
+                           If for_x_HOR≠p[0,0,0,0,0,0]
+                             x_diff≔get_feature_pose(for_x_HOR_R,A_Touch_p[A_HOR_R])
+                             A_Touch_p[A_HOR_R]=pose_trans(A_Touch_p[A_HOR_R], p[x_diff[0],0,0,0,0,0])
+                         A_Touch_p[A_HOR_R]=pose_trans(A_Touch_p[A_HOR_R], p[-offset_2f_begin/1000,0,0,0,0,0])
+                     VR1
+                       If A_Prepos_l[A_VR1]≠p[0,0,0,0,0,0]
+                         If b1_cell_info_R≟A or b1_cell_info_R≟C or b1_cell_info_R≟c
+                           If for_z_VR1≟p[0,0,0,0,0,0]
+                             for_z_VR1≔A_Touch_p[A_HOR_R]
+                           If for_z_VR1≠p[0,0,0,0,0,0]
+                             z_diff≔get_feature_pose(for_z_VR1,A_Touch_p[A_VR1])
+                             A_Touch_p[A_VR1]=pose_trans(A_Touch_p[A_VR1], p[z_diff[0],0,0,0,0,0])
+                           'A_Touch_p[A_VR1]=put_pose(A_Touch_p[A_VR1],2, for_z_VR1[2])'
+                         A_Touch_p[A_VR1]=pose_trans(A_Touch_p[A_VR1], p[offset_3f_begin/1000,0,0,0,0,0])
+                     VR2
+                       If A_Prepos_l[A_VR2]≠p[0,0,0,0,0,0]
+                         A_Touch_p[A_VR2]=pose_trans(A_Touch_p[A_VR2], p[offset_3f_begin/1000,0,0,0,0,0])
+                     HOR_ML
+                       If A_Prepos_l[A_HOR_ML]≠p[0,0,0,0,0,0]
+                         A_Touch_p[A_HOR_M]=A_Touch_p[A_HOR_ML]
+                         x_welding_axis≔get_feature_pose(for_cal_x_wel,A_Touch_p[A_HOR_ML])
+                         A_Touch_p[A_HOR_M]=pose_trans(A_Touch_p[A_HOR_ML], p[x_welding_axis[0],0,0,0,0,0])
+                         A_Touch_p[A_HOR_M]=put_pose(A_Touch_p[A_HOR_M],0,for_cal_y_wel[0])
+                         A_Touch_p[A_HOR_M]=pose_trans(A_Touch_p[A_HOR_M], p[10/1000,0,0,0,0,0])
+                         If b1_cell_info_L≟C or b1_cell_info_L≟D
+                           'A_Touch_p[A_HOR_ML]=put_pose(A_Touch_p[A_HOR_ML],1,for_cal_x_wel[1])'
+                           x_welding_axis≔get_feature_pose(for_cal_x_wel,A_Touch_p[A_HOR_ML])
+                           A_Touch_p[A_HOR_ML]=pose_trans(A_Touch_p[A_HOR_ML],p[x_welding_axis[0],0,0,0,0,0])
+                           A_Touch_p[A_HOR_ML]=pose_trans(A_Touch_p[A_HOR_ML],p[0/1000,0,0,0,0,0])
+                     HOR_MR
+                       If A_Prepos_l[A_HOR_MR]≠p[0,0,0,0,0,0]
+                         'A_pose_tmp≔A_Touch_p[A_HOR_MR]'
+                         A_Touch_p[A_HOR_M]=A_Touch_p[A_HOR_MR]
+                         x_welding_axis≔get_feature_pose(for_cal_x_wel,A_Touch_p[A_HOR_MR])
+                         A_Touch_p[A_HOR_M]=pose_trans(A_Touch_p[A_HOR_M], p[x_welding_axis[0],0,0,0,0,0])
+                         A_Touch_p[A_HOR_M]=put_pose(A_Touch_p[A_HOR_M],0,for_cal_y_wel[0])
+                         A_Touch_p[A_HOR_M]=pose_trans(A_Touch_p[A_HOR_M], p[-10/1000,0,0,0,0,0])
+                         If b1_cell_info_R≟C or b1_cell_info_R≟D
+                           'A_Touch_p[A_HOR_MR]=put_pose(A_Touch_p[A_HOR_MR],1,for_cal_x_wel[1])'
+                           x_welding_axis≔get_feature_pose(for_cal_x_wel,A_Touch_p[A_HOR_MR])
+                           A_Touch_p[A_HOR_MR]=pose_trans(A_Touch_p[A_HOR_MR],p[x_welding_axis[0],0,0,0,0,0])
+                           A_Touch_p[A_HOR_MR]=pose_trans(A_Touch_p[A_HOR_MR],p[-0/1000,0,0,0,0,0])
+                 'Touch Remember On/OFF'
+                 write_port_register(180,1)
+           Else
+             Ignore Touch and check error
+               Auto_cur_cell≔0
+               Loop Auto_cur_cell<Auto_total_cell
+                 A_sel_v≔Auto_W_num[Auto_cur_cell]
+                 If A_sel_v<A_HOR_2path
+                   If A_Touch_p[A_sel_v]≟p[0,0,0,0,0,0]
+                     write_port_register(142,120)
+                     Halt
+                 Auto_cur_cell≔Auto_cur_cell+1
+               Auto_cur_cell≔0
+         welding
+           weldings
+             Auto_cur_cell≔read_port_register(138)
+             time_cal_trig≔ True 
+             Loop Auto_cur_cell<Auto_total_cell
+               write_port_register(138,Auto_cur_cell)
+               running_trig≔ True 
+               '[2F_AB - 30] , [2F_CD_LEFT - 100] , [2F_CD_RIGHT - 150] , [3F - ELSE]'
+               If Auto_W_num[Auto_cur_cell]≥100 and Auto_W_num[Auto_cur_cell]≤149
+                 '2F CD LEFT'
+                 A_sel_v≔A_HOR
+                 A_sel_v_end≔A_HOR_ML
+                 A_sel_v2≔A_HOR_M
+                 A_sel_v_end2≔A_HOR_R
+                 If floor(Auto_W_num[Auto_cur_cell]/10)≟10
+                   current_path≔1
+                   multi_path≔1
+                 ElseIf floor(Auto_W_num[Auto_cur_cell]/10)≟11
+                   current_path≔2
+                   multi_path≔2
+                 ElseIf floor(Auto_W_num[Auto_cur_cell]/10)≟12
+                   current_path≔3
+                   multi_path≔3
+                 ElseIf floor(Auto_W_num[Auto_cur_cell]/10)≟13
+                   current_path≔4
+                   multi_path≔4
+                 current_2f≔current_2f+1
+                 CD_MLR≔ True 
+                 write_port_register(135,A_HOR)
+                 write_port_register(136,current_2f)
+                 If simulation_mode
+                   Call welding_parameter_sim
+                 Else
+                   Call welding_parameter_init
+                 wv_direction≔1
+                 If Auto_W_num[Auto_cur_cell]%10≟4
+                   A_sel_v≔A_HOR_R
+                   Call MoveFun
+                   A_sel_v≔A_HOR
+                 ElseIf Auto_W_num[Auto_cur_cell]%10≟0 or Auto_W_num[Auto_cur_cell]%10≟1 or Auto_W_num[Auto_cur_cell]%10≟2
+                   Call MoveFun
+                 Call weav_welding_2f_CD
+               ElseIf Auto_W_num[Auto_cur_cell]≥150 and Auto_W_num[Auto_cur_cell]≤189
+                 '2F CD RIGHT'
+                 A_sel_v≔A_HOR_R
+                 A_sel_v_end≔A_HOR_MR
+                 A_sel_v2≔A_HOR_M
+                 A_sel_v_end2≔A_HOR
+                 If floor(Auto_W_num[Auto_cur_cell]/10)≟15
+                   current_path≔1
+                   multi_path≔1
+                 ElseIf floor(Auto_W_num[Auto_cur_cell]/10)≟16
+                   current_path≔2
+                   multi_path≔2
+                 ElseIf floor(Auto_W_num[Auto_cur_cell]/10)≟17
+                   current_path≔3
+                   multi_path≔3
+                 ElseIf floor(Auto_W_num[Auto_cur_cell]/10)≟18
+                   current_path≔4
+                   multi_path≔4
+                 current_2f≔current_2f+1
+                 CD_MLR≔ False 
+                 write_port_register(135,A_HOR)
+                 write_port_register(136,current_2f)
+                 If simulation_mode
+                   Call welding_parameter_sim
+                 Else
+                   Call welding_parameter_init
+                 wv_direction≔-1
+                 If Auto_W_num[Auto_cur_cell]%10≟4
+                   A_sel_v≔A_HOR
+                   Call MoveFun
+                   A_sel_v≔A_HOR_R
+                 ElseIf Auto_W_num[Auto_cur_cell]%10≟0 or Auto_W_num[Auto_cur_cell]%10≟1 or Auto_W_num[Auto_cur_cell]%10≟2
+                   Call MoveFun
+                 Call weav_welding_2f_CD
+               ElseIf Auto_W_num[Auto_cur_cell]≥30 and Auto_W_num[Auto_cur_cell]≤65
+                 '2F'
+                 A_sel_v≔A_HOR
+                 A_sel_v_end≔A_HOR_R
+                 If floor(Auto_W_num[Auto_cur_cell]/10)≟3
+                   current_path≔1
+                   multi_path≔1
+                 ElseIf floor(Auto_W_num[Auto_cur_cell]/10)≟4
+                   current_path≔2
+                   multi_path≔2
+                 ElseIf floor(Auto_W_num[Auto_cur_cell]/10)≟5
+                   current_path≔3
+                   multi_path≔3
+                 ElseIf floor(Auto_W_num[Auto_cur_cell]/10)≟6
+                   current_path≔4
+                   multi_path≔4
+                 current_2f≔current_2f+1
+                 write_port_register(135,A_HOR)
+                 write_port_register(136,current_2f)
+                 If simulation_mode
+                   Call welding_parameter_sim
+                 Else
+                   Call welding_parameter_init
+                 If Auto_W_num[Auto_cur_cell]%10≟2
+                   A_sel_v≔A_HOR_R
+                   Call MoveFun
+                   A_sel_v≔A_HOR
+                 Else
+                   Call MoveFun
+                 Call weav_welding_2f
+               Else
+                 A_sel_v≔Auto_W_num[Auto_cur_cell]
+                 write_port_register(135,A_sel_v)
+                 current_path≔1
+                 current_2f≔0
+                 write_port_register(136,current_2f)
+                 If simulation_mode
+                   Call welding_parameter_sim
+                 Else
+                   Call welding_parameter_init
+                 A_sel_v_end≔A_sel_v+9
+                 Call weav_welding_3f
+               Call reset_weld_param
+               'If Auto_cur_cell+1<Auto_total_cell'
+               If get_move_trig≟1
+                 If get_next_number≠Auto_cur_cell
+                   Auto_cur_cell≔get_next_number
+                 Else
+                   Auto_cur_cell≔Auto_cur_cell+1
+                 write_port_register(166,0)
+                 write_port_register(167,0)
+                 get_move_trig≔0
+               Else
+                 Auto_cur_cell≔Auto_cur_cell+1
+             homeing()
+             write_port_register(162,1)
+             write_port_register(180,0)
+     Wait: 0.01
+     after init auto
+       If auto_on
+         write_port_register(202,0)
+         timer_1: Stop
+         write_welder(0, False )
+         write_welder(4, False )
+         Call reset_weld_param
+         multi_path≔1
+         auto_on≔ False 
+         current_2f≔0
+         get_center≔get_center_bak
+         vr2_p1≔p[0,0,0,0,0,0]
+         welding_program≔ False 
+         start_num≔135
+         Loop start_num<141
+           write_port_register(start_num,0)
+           start_num≔start_num+1
+   Thread_2
+     heartbeat≔heartbeat+1
+     If heartbeat>499
+       heartbeat≔0
+     write_port_register(128,heartbeat)
+     'Pendant_Heartbeat'
+     Wait: 1.0
+   Thread_1
+     a0_Job_Mode≔read_port_register(162)
+     a1_job_move≔read_port_register(163)
+     If red_led≟ True 
+       Set red_led=Off
+     If a0_Job_Mode≟2
+       If read_port_register(arc_onoff_168)≟2
+         a9_wv_weldingon≔ True 
+       Else
+         a9_wv_weldingon≔ False 
+       If Auto_trig
+         get_next_number≔read_port_register(166)
+         get_move_trig≔read_port_register(167)
+         If get_move_trig≟1 and running_trig≟ True 
+           If get_next_number<0 or get_next_number>30
+             write_port_register(142,141)
+             Halt
+           If get_next_number≠Auto_cur_cell
+             running_trig≔ False 
+             write_welder(0, False )
+             write_port_register(149,0)
+             write_port_register(202,0)
+           Else
+             write_port_register(166,0)
+             write_port_register(167,0)
+       If t_time>timer_1
+         write_port_register(143,timer_1)
+       Else
+         write_port_register(143,timer_1)
+         write_port_register(144,timer_1)
+       Monitoring touch and welding
+         If read_welder_control(0) and read_port_register(130)≠1
+           write_port_register(130,1)
+         ElseIf read_welder_control(0) and read_port_register(130)≠0
+           write_port_register(130,0)
+         If read_welder(5)
+           'check wcr in (digital)'
+           write_output_float_register(20,1)
+         Else
+           write_output_float_register(20,0)
+         If read_welder(4)
+           'check touch (digital)'
+           write_output_float_register(21,1)
+         Else
+           write_output_float_register(21,0)
+         If read_welder_control(0)
+           'check welding out (digital)'
+           write_output_float_register(17,1)
+         Else
+           write_output_float_register(17,0)
+         If read_welder_control(4)
+           'check touch out (digital)'
+           write_output_float_register(18,1)
+         Else
+           write_output_float_register(18,0)
+     If get_tool_digital_in(1)≟ True 
+       set_tool_digital_out(1, False )
+     Else
+       set_tool_digital_out(1, True )
+     If red_led≟ True 
+       Set red_led=Off
+       end_freedrive_mode()
+     check_speed()
+     Wait: 0.05
+   Event event_cal_on
+     'A_Speed_list≔[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]'
+     'A_Distance_list≔[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]'
+     move_i_f≔1
+     get_pose_side≔0
+     Loop move_i_f<10
+       If A_Touch_trig_l[move_i_f]≟ True 
+         If move_i_f≟A_VL1 or move_i_f≟A_VL2
+           A_sel_v≔move_i_f
+           If simulation_mode
+             Call welding_parameter_sim
+           Else
+             Call welding_parameter_init
+           If a8_wv_distance<5
+             write_port_register(142,143)
+             Halt
+           b2_left_par≔ True 
+           b8_wv_2f≔ False 
+           If move_i_f≟A_VL2
+             callar_hor≔a6_callar_hor
+             b2_cell≔0
+             If b1_cell_info_L≟c or b1_cell_info_L≟d
+               b2_cell≔b1_cell_info_L
+             Else
+               b2_cell≔0
+           Else
+             callar_hor≔0
+             b2_cell≔b1_cell_info_L
+           get_pos≔get_lr(left,a6_f_width,a5_f_hole,a7_f_distance,b2_left_par,b8_wv_2f,Touch_dis,get_margin_z,get_pose_side,callar_hor,b2_cell,center_line)
+           pre_tp≔tilt_3f_fun(get_pos,[0,0,0],0)
+           A_Prepos_l[move_i_f]=pre_tp
+         ElseIf move_i_f≟A_VR1 or move_i_f≟A_VR2
+           A_sel_v≔move_i_f
+           If simulation_mode
+             Call welding_parameter_sim
+           Else
+             Call welding_parameter_init
+           If a8_wv_distance<5
+             write_port_register(142,143)
+             Halt
+           b2_left_par≔ False 
+           b8_wv_2f≔ False 
+           If move_i_f≟A_VR2
+             callar_hor≔a6_callar_hor
+             If b1_cell_info_R≟c or b1_cell_info_R≟d
+               b2_cell≔b1_cell_info_R
+             Else
+               b2_cell≔0
+           Else
+             callar_hor≔0
+             b2_cell≔b1_cell_info_R
+           get_pos≔get_lr(right,a6_f_width,a5_f_hole,a7_f_distance,b2_left_par,b8_wv_2f,Touch_dis,get_margin_z,get_pose_side,callar_hor,b2_cell,center_line)
+           pre_tp≔tilt_3f_fun(get_pos,[0,0,0],0)
+           A_Prepos_l[move_i_f]=pre_tp
+         ElseIf move_i_f≟A_HOR
+           A_sel_v≔A_HOR
+           If simulation_mode
+             Call welding_parameter_sim
+           Else
+             Call welding_parameter_init
+           b8_wv_2f≔ True 
+           b2_left_par≔ True 
+           b2_cell≔b1_cell_info_L
+           get_pos≔get_lr(up_left,a6_f_width,a5_f_hole,a7_f_distance,b2_left_par,b8_wv_2f,Touch_dis,get_margin_z,get_pose_side,0,b2_cell,center_line)
+           pre_tp≔get_pos
+           A_Prepos_l[move_i_f]=pre_tp
+         ElseIf move_i_f≟A_HOR_R
+           A_sel_v≔A_HOR
+           If simulation_mode
+             Call welding_parameter_sim
+           Else
+             Call welding_parameter_init
+           b2_left_par≔ False 
+           b8_wv_2f≔ True 
+           b2_cell≔b1_cell_info_R
+           get_pos≔get_lr(up_right,a6_f_width,a5_f_hole,a7_f_distance,b2_left_par,b8_wv_2f,Touch_dis,get_margin_z,get_pose_side,0,b2_cell,center_line)
+           pre_tp≔get_pos
+           A_Prepos_l[move_i_f]=pre_tp
+         ElseIf move_i_f≟A_HOR_ML
+           A_sel_v≔A_HOR_ML
+           If simulation_mode
+             Call welding_parameter_sim
+           Else
+             Call welding_parameter_init
+           b8_wv_2f≔ True 
+           b2_left_par≔ True 
+           b2_cell≔b1_cell_info_L
+           Touch_dis≔-1*Touch_dis
+           get_pos≔get_lr(up_left,a6_f_width,a5_f_hole,a7_f_distance,b2_left_par,b8_wv_2f,Touch_dis,get_margin_z,get_pose_side,a6_callar_hor,b2_cell,center_line)
+           Touch_dis≔-1*Touch_dis
+           pre_tp≔get_pos
+           A_Prepos_l[move_i_f]=pre_tp
+         ElseIf move_i_f≟A_HOR_MR
+           A_sel_v≔A_HOR_MR
+           If simulation_mode
+             Call welding_parameter_sim
+           Else
+             Call welding_parameter_init
+           b2_left_par≔ False 
+           b8_wv_2f≔ True 
+           b2_cell≔b1_cell_info_R
+           Touch_dis≔-1*Touch_dis
+           get_pos≔get_lr(up_right,a6_f_width,a5_f_hole,a7_f_distance,b2_left_par,b8_wv_2f,Touch_dis,get_margin_z,get_pose_side,a6_callar_hor,b2_cell,center_line)
+           Touch_dis≔-1*Touch_dis
+           pre_tp≔get_pos
+           A_Prepos_l[move_i_f]=pre_tp
+         If move_i_f≤4
+           A_Prepos_l[move_i_f+9]=p[0,0,0,0,0,0]
+         'A_Speed_list[move_i]=a2_speed_cpm'
+         'A_Distance_list[move_i]=a8_wv_distance'
+       move_i_f≔move_i_f+1
+     event_cal_on≔ False 
+   Event event_side_on
+     'A_Speed_list≔[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]'
+     'A_Distance_list≔[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]'
+     Wait event_cal_on≟ False 
+     move_i_f≔1
+     get_pose_side≔get_pose_side_t
+     Loop move_i_f<10
+       If A_Touch_trig_l[move_i_f]≟ True 
+         If move_i_f≟A_VL1 or move_i_f≟A_VL2
+           A_Prepos_l[move_i_f]=side_apply(A_Prepos_l[move_i_f],center_line,get_pose_side)
+         ElseIf move_i_f≟A_VR1 or move_i_f≟A_VR2
+           A_Prepos_l[move_i_f]=side_apply(A_Prepos_l[move_i_f],center_line,get_pose_side)
+         ElseIf move_i_f≟A_HOR
+           A_Prepos_l[move_i_f]=side_apply(A_Prepos_l[move_i_f],center_line,get_pose_side)
+         ElseIf move_i_f≟A_HOR_R
+           A_Prepos_l[move_i_f]=side_apply(A_Prepos_l[move_i_f],center_line,get_pose_side)
+         ElseIf move_i_f≟A_HOR_ML
+           A_Prepos_l[move_i_f]=side_apply(A_Prepos_l[move_i_f],center_line,get_pose_side)
+         ElseIf move_i_f≟A_HOR_MR
+           A_Prepos_l[move_i_f]=side_apply(A_Prepos_l[move_i_f],center_line,get_pose_side)
+       move_i_f≔move_i_f+1
+     event_side_on≔ False 
+   Event reset_trig
+     Call reset_weld_param
+     reset_trig≔ False 
+   Event time_cal_trig
+     t_time≔time_cal(Auto_W_num,Auto_total_cell,A_Speed_list,A_Distance_list,A_Touch_p,0)
+     write_port_register(144,t_time)
+     time_cal_trig≔ False 
+   Event pause_trig
+     s_conn≔socket_open("192.168.1.7",29999)
+     s_send≔socket_send_string("pause")
+     s_send≔socket_send_byte(10)
+     socket_close()
+     pause_trig≔ False 
+   cell_info
+     'cell_setting'
+     a7_f_distance≔get_center
+     'dis + 125'
+     If simulation_mode
+       a6_f_height_l≔190
+       a6_f_height_r≔190
+       a6_f_width≔690
+       a6_callar_hor≔100
+       a6_callar_vert≔100
+       center_height≔50
+       EXT_flag1≔integer_to_binary_list(2048)
+       get_margin_z≔50
+     Else
+       a6_f_height_l≔read_port_register(173)
+       a6_f_height_r≔read_port_register(174)
+       a6_f_width≔read_port_register(175)
+       a6_callar_hor≔read_port_register(181)
+       a6_callar_vert≔read_port_register(182)
+       center_height≔read_port_register(237)
+       EXT_flag1≔integer_to_binary_list(read_port_register(179))
+       'center_height≔150'
+       get_margin_z≔read_port_register(238)
+       'get_margin_z≔50'
+       If center_height>32765
+         center_height≔center_height-65535
+       If get_margin_z>32765
+         get_margin_z≔get_margin_z-65535
+     Initialization
+       CELL_ROBOT_DIST≔a7_f_distance
+       CELL_WIDTH≔a6_f_width
+   robotand_cell_initalizat
+     If Auto_trig≟ True 
+       Auto_trig≔ False 
+       init
+         write_port_register(cell_3f_2f_151,0)
+         write_port_register(cell_info_152,0)
+         write_port_register(weld_req_153,0)
+         write_port_register(touch_cell_155,0)
+         write_port_register(touch_num_156,0)
+         write_port_register(touch_done_157,0)
+         write_port_register(weld_done_137,0)
+         write_port_register(135,0)
+         write_port_register(136,0)
+         write_port_register(165,0)
+         write_port_register(166,0)
+         write_port_register(167,0)
+         write_port_register(169,0)
+         write_port_register(170,0)
+         write_port_register(221,0)
+         write_port_register(222,0)
+         write_port_register(223,0)
+         write_port_register(224,0)
+         write_port_register(225,0)
+         write_port_register(226,0)
+         write_port_register(227,0)
+         write_port_register(228,0)
+         write_port_register(240,0)
+         write_port_register(176,0)
+         write_port_register(177,0)
+         write_port_register(154,0)
+     sync()
+   welding_parameter_init
+     init
+       If A_sel_v≟A_VL1 or A_sel_v≟A_VL2 or A_sel_v≟A_VR1 or A_sel_v≟A_VR2
+         position_3f2f≔position_3F
+         write_port_register(cell_3f_2f_151,A_sel_v)
+         b8_wv_2f≔ False 
+         d_lean_degree≔0
+       Else
+         position_3f2f≔position_2F
+         b8_wv_2f≔ True 
+         d_lean_degree≔30
+         write_port_register(cell_3f_2f_151,A_HOR)
+       If current_path≥2
+         write_port_register(cell_info_152,current_path)
+       Else
+         write_port_register(cell_info_152,1)
+       write_port_register(return_done_240,0)
+       Wait: 0.3
+       write_port_register(weld_req_153,1)
+       Wait read_port_register(return_done_240)≟1
+       write_port_register(weld_req_153,0)
+       touch_m_check≔0
+       start_end_from_pendant
+         d_start_current≔read_port_register(244)/10
+         d_start_voltage≔read_port_register(245)/10
+         d_start_time≔read_port_register(241)/10
+         d_end_current≔read_port_register(249)/10
+         d_end_voltage≔read_port_register(250)/10
+         d_end_time≔read_port_register(246)/10
+         d_end_current_2≔read_port_register(254)/10
+         d_end_voltage_2≔read_port_register(255)/10
+         d_end_time_2≔read_port_register(251)/10
+         a7_weld_crater≔[d_start_current,d_start_voltage,d_start_time,d_end_current,d_end_voltage,d_end_time,d_lean_degree]
+       a0_volt_ref≔read_port_register(231)/10
+       a1_amp_ref≔read_port_register(232)/10
+       a2_speed_cpm≔read_port_register(233)/10
+       a3_wv_amplitude≔read_port_register(234)/10
+       a4_wv_frequency≔read_port_register(225)/10
+       b1_appro_param≔0
+       b4_wv_delay2≔read_port_register(226)/10
+       b6_wv_delay4≔read_port_register(227)/10
+       b3_wv_delay1≔0
+       b5_wv_delay3≔0
+       b3_dealy_all≔[b3_wv_delay1,b4_wv_delay2,b5_wv_delay3,b6_wv_delay4]
+       get_width_182≔read_port_register(182)
+       b9_touch_sens≔20
+       task_angle≔register_read(228)/10
+       Circle_Speed≔a2_speed_cpm
+       CELL_BOTTOM≔a7_cell_bottom
+       a6_scallup_left≔read_port_register(176)
+       a6_scallup_righ≔read_port_register(177)
+       a5_f_hole≔[a7_cell_bottom,a6_scallup_left,a6_scallup_righ]
+       'to_do'
+       'to_do'
+       폴더
+         offset_2f_x≔7
+         offset_3f_z≔-5
+       If A_sel_v≟A_VR1 or A_sel_v≟A_VR2
+         '3F'
+         b2_left_par≔ False 
+         b8_wv_type≔1
+         If A_sel_v≟A_VR2 and (b1_cell_info_R≟c or b1_cell_info_R≟d)
+           b7_tilt_degree≔[0,0,0]
+         Else
+           b7_tilt_degree≔[task_angle,-27,0]
+         c3_arc_enable≔1
+       ElseIf A_sel_v≟A_VL1 or A_sel_v≟A_VL2
+         '3F'
+         b2_left_par≔ True 
+         b8_wv_type≔1
+         If A_sel_v≟A_VL2 and (b1_cell_info_L≟c or b1_cell_info_L≟d)
+           b7_tilt_degree≔[0,0,0]
+         Else
+           b7_tilt_degree≔[task_angle,-27,0]
+         c3_arc_enable≔1
+       Else
+         b2_left_par≔ True 
+         b8_wv_type≔2
+         If A_sel_v≟A_HOR
+           b7_tilt_degree≔[30,-1*task_angle,0]
+         Else
+           'b7_tilt_degree≔[-30,task_angle,0]'
+           b7_tilt_degree≔[30,-1*task_angle,0]
+         'b7_tilt_degree≔[25+task_angle,0]'
+         c3_arc_enable≔0
+       If A_sel_v≟A_VL2 or A_sel_v≟A_VR2
+         a8_wv_distance≔read_port_register(182)-offset_3f_begin
+         'If read_port_register(182)≟0'
+       Else
+         If b2_left_par
+           Comment
+           a8_wv_distance≔a6_f_height_l-a5_f_hole[1]-offset_3f_begin
+           Comment
+         Else
+           a8_wv_distance≔a6_f_height_r-a5_f_hole[1]-offset_3f_begin
+       Ext fun & Squash
+         If (A_sel_v≟A_VL1 or A_sel_v≟A_VL2) and (b1_cell_info_L≟B or b1_cell_info_L≟D)
+           Scallup_check≔ True 
+         ElseIf (A_sel_v≟A_VR1 or A_sel_v≟A_VR2) and (b1_cell_info_R≟B or b1_cell_info_R≟D)
+           Scallup_check≔ True 
+         Else
+           Scallup_check≔ False 
+         If (EXT_flag1[7]≟ True ) and (A_sel_v≠A_HOR) and (A_sel_v≠A_VL2) and (A_sel_v≠A_VR2) and (Scallup_check≟ False )
+           squash
+             squash_enable≔1
+             squash_voltage≔24.5
+             squash_current≔190
+             squash_amp≔7
+             squash_speed≔10
+             squash_cycle≔8
+         Else
+           squash
+             squash_enable≔0
+             squash_voltage≔0
+             squash_current≔0
+             squash_amp≔0
+             squash_speed≔0
+             squash_cycle≔0
+         If EXT_flag1[8]≟ True  and EXT_flag1[9]≟ False 
+           sludge≔1
+         ElseIf EXT_flag1[8]≟ False  and EXT_flag1[9]≟ True 
+           sludge≔2
+         Else
+           sludge≔0
+         waste_cycle≔2
+         c0_offset_x≔read_port_register(229)/10
+         c0_offset_z≔read_port_register(230)/10
+         squash_l≔[a0_volt_ref,a1_amp_ref,squash_enable,squash_voltage,squash_current,squash_amp,squash_speed,squash_cycle,waste_cycle,c0_offset_x,c0_offset_z]
+       WV_gap
+         c5_wv_gap_y≔read_port_register(236)/10
+         c6_wv_gap_cpm≔read_port_register(235)/10
+         c9_wv_gap_freq≔a4_wv_frequency
+         If c6_wv_gap_cpm≟a2_speed_cpm and a3_wv_amplitude≟c5_wv_gap_y
+           c4_gap_enable≔0
+         Else
+           c4_gap_enable≔1
+         c7_wv_gap≔[c4_gap_enable,c5_wv_gap_y,c6_wv_gap_cpm,c9_wv_gap_freq]
+       arc_sen
+         c3_X_p_gain≔read_port_register(186)/10
+         c3_X_i_gain≔read_port_register(187)/10
+         c3_Z_p_gain≔read_port_register(184)/10
+         c3_Z_i_gain≔read_port_register(185)/10
+         c3_wv_arc_fix≔0
+         c3_wv_arc≔[c3_arc_enable,c3_X_p_gain,c3_X_i_gain,c3_Z_p_gain,c3_Z_i_gain,c3_wv_arc_fix]
+       volt and current
+         set_current_voltage(a1_amp_ref,a0_volt_ref)
+       write_port_register(154,1)
+       Wait read_port_register(return_done_240)≟0
+       write_port_register(154,0)
+   welding_parameter_sim
+     init
+       If A_sel_v≟A_VL1 or A_sel_v≟A_VL2 or A_sel_v≟A_VR1 or A_sel_v≟A_VR2
+         position_3f2f≔position_3F
+         write_port_register(cell_3f_2f_151,A_sel_v)
+         b8_wv_2f≔ False 
+         d_lean_degree≔0
+       Else
+         position_3f2f≔position_2F
+         b8_wv_2f≔ True 
+         d_lean_degree≔30
+         write_port_register(cell_3f_2f_151,A_HOR)
+       If current_path≥2
+         write_port_register(cell_info_152,current_path)
+       Else
+         write_port_register(cell_info_152,1)
+       write_port_register(return_done_240,0)
+       Wait: 0.3
+       write_port_register(weld_req_153,1)
+       'Wait read_port_register(return_done_240)≟1'
+       write_port_register(weld_req_153,0)
+       touch_m_check≔0
+       start_end_from_pendant
+         d_start_current≔read_port_register(244)/10
+         d_start_voltage≔read_port_register(245)/10
+         d_start_time≔read_port_register(241)/10
+         d_end_current≔read_port_register(249)/10
+         d_end_voltage≔read_port_register(250)/10
+         d_end_time≔read_port_register(246)/10
+         d_end_current_2≔read_port_register(254)/10
+         d_end_voltage_2≔read_port_register(255)/10
+         d_end_time_2≔read_port_register(251)/10
+         a7_weld_crater≔[d_start_current,d_start_voltage,d_start_time,d_end_current,d_end_voltage,d_end_time,d_lean_degree]
+       a0_volt_ref≔read_port_register(231)/10
+       a1_amp_ref≔read_port_register(232)/10
+       b1_appro_param≔0
+       Folder
+         a2_speed_cpm≔17
+         a3_wv_amplitude≔5
+         a4_wv_frequency≔1.4
+         b4_wv_delay2≔0.3
+         b6_wv_delay4≔0.3
+         b9_touch_sens≔10
+         task_angle≔0
+         a6_scallup_left≔0
+         a6_scallup_righ≔0
+       b3_wv_delay1≔0
+       b5_wv_delay3≔0
+       b3_dealy_all≔[b3_wv_delay1,b4_wv_delay2,b5_wv_delay3,b6_wv_delay4]
+       get_width_182≔a6_callar_vert
+       task_angle≔register_read(228)/10
+       Circle_Speed≔a2_speed_cpm
+       CELL_BOTTOM≔a7_cell_bottom
+       a5_f_hole≔[a7_cell_bottom,a6_scallup_left,a6_scallup_righ]
+       폴더
+         offset_2f_x≔7
+         offset_3f_z≔-5
+       If A_sel_v≟A_VR1 or A_sel_v≟A_VR2
+         '3F'
+         b2_left_par≔ False 
+         b8_wv_type≔1
+         b7_tilt_degree≔[task_angle,-27,0]
+         c3_arc_enable≔1
+       ElseIf A_sel_v≟A_VL1 or A_sel_v≟A_VL2
+         '3F'
+         b2_left_par≔ True 
+         b8_wv_type≔1
+         b7_tilt_degree≔[task_angle,-27,0]
+         c3_arc_enable≔1
+       Else
+         b2_left_par≔ True 
+         b8_wv_type≔2
+         b7_tilt_degree≔[30,-1*task_angle,0]
+         'b7_tilt_degree≔[25+task_angle,0]'
+         c3_arc_enable≔0
+       If A_sel_v≟A_VL2 or A_sel_v≟A_VR2
+         a8_wv_distance≔read_port_register(182)
+         'If read_port_register(182)≟0'
+       Else
+         If b2_left_par
+           Comment
+           a8_wv_distance≔a6_f_height_l-a5_f_hole[1]
+           Comment
+         Else
+           a8_wv_distance≔a6_f_height_r-a5_f_hole[1]
+       Ext fun & Squash
+         If (A_sel_v≟A_VL1 or A_sel_v≟A_VL2) and (b1_cell_info_L≟B or b1_cell_info_L≟D)
+           Scallup_check≔ True 
+         ElseIf (A_sel_v≟A_VR1 or A_sel_v≟A_VR2) and (b1_cell_info_R≟B or b1_cell_info_R≟D)
+           Scallup_check≔ True 
+         Else
+           Scallup_check≔ False 
+         If (EXT_flag1[7]≟ True ) and (A_sel_v≠A_HOR) and (A_sel_v≠A_VL2) and (A_sel_v≠A_VR2) and (Scallup_check≟ False )
+           squash
+             squash_enable≔1
+             squash_voltage≔24.5
+             squash_current≔190
+             squash_amp≔7
+             squash_speed≔10
+             squash_cycle≔8
+         Else
+           squash
+             squash_enable≔0
+             squash_voltage≔0
+             squash_current≔0
+             squash_amp≔0
+             squash_speed≔0
+             squash_cycle≔0
+         waste_cycle≔2
+         c0_offset_x≔read_port_register(229)/10
+         c0_offset_z≔read_port_register(230)/10
+         squash_l≔[a0_volt_ref,a1_amp_ref,squash_enable,squash_voltage,squash_current,squash_amp,squash_speed,squash_cycle,waste_cycle,c0_offset_x,c0_offset_z]
+       WV_gap
+         c5_wv_gap_y≔a3_wv_amplitude
+         c6_wv_gap_cpm≔a2_speed_cpm
+         c9_wv_gap_freq≔a4_wv_frequency
+         If c6_wv_gap_cpm≟a2_speed_cpm and a3_wv_amplitude≟c5_wv_gap_y
+           c4_gap_enable≔0
+         Else
+           c4_gap_enable≔1
+         c4_gap_enable≔0
+         c7_wv_gap≔[c4_gap_enable,c5_wv_gap_y,c6_wv_gap_cpm,c9_wv_gap_freq]
+       arc_sen
+         c3_X_p_gain≔read_port_register(186)/10
+         c3_X_i_gain≔read_port_register(187)/10
+         c3_Z_p_gain≔read_port_register(184)/10
+         c3_Z_i_gain≔read_port_register(185)/10
+         c3_wv_arc_fix≔0
+         c3_wv_arc≔[c3_arc_enable,c3_X_p_gain,c3_X_i_gain,c3_Z_p_gain,c3_Z_i_gain,c3_wv_arc_fix]
+       volt and current
+         set_current_voltage(a1_amp_ref,a0_volt_ref)
+       write_port_register(154,1)
+       'Wait read_port_register(return_done_240)≟0'
+       write_port_register(154,0)
+   Move_done
+     write_port_register(robot_move_163,0)
+     write_port_register(robot_pose_164,0)
+     write_port_register(robot_ready_141,1)
+   MoveFun
+     b_touch_pos≔A_Prepos_l[A_sel_v]
+     MoveL
+       b_touch_pos
+   MoveFun_cd
+     b_touch_pos≔A_Prepos_l[A_sel_v]
+     If A_sel_v≟A_VR2 and (b1_cell_info_R≟c or b1_cell_info_R≟d)
+       tilt_deg≔27
+       tilt_deg_ry≔19
+       tilt_deg_rz≔0
+     Else
+       tilt_deg≔10
+       tilt_deg_ry≔5
+       tilt_deg_rz≔0
+     If b2_left_par
+       b_touch_pos≔pose_add(b_touch_pos, p[0,18/1000,0,0,0,0])
+       b_touch_pos≔pose_trans(b_touch_pos, p[0,0,0,d2r(-tilt_deg),d2r(-tilt_deg_ry),d2r(tilt_deg_rz)])
+     Else
+       b_touch_pos≔pose_add(b_touch_pos, p[0,-18/1000,0,0,0,0])
+       b_touch_pos≔pose_trans(b_touch_pos, p[0,0,0,d2r(tilt_deg),d2r(-tilt_deg_ry),d2r(-tilt_deg_rz)])
+     MoveL
+       b_touch_pos
+   MoveandTouchFun_2f
+     b_touch_pos≔A_Prepos_l[A_sel_v]
+     tilt_deg≔3
+     tilt_deg_ry≔3
+     tilt_deg_rz≔0
+     If b2_left_par
+       b_touch_pos≔pose_trans(b_touch_pos, p[0,0/1000,0,d2r(tilt_deg),d2r(-tilt_deg_ry),d2r(tilt_deg_rz)])
+     Else
+       b_touch_pos≔pose_trans(b_touch_pos, p[0,0/1000,0,d2r(tilt_deg),d2r(-tilt_deg_ry),d2r(-tilt_deg_rz)])
+     MoveL
+       b_touch_pos
+     Touch_2f
+       touch_result≔touch_fun_2f(b_touch_pos,b_touch_pos,b2_left_par,b9_touch_sens)
+       'touch_result≔pose_trans(touch_result,p[(-Touch_dis+2)/1000,0,0,0,0,0])'
+       If b2_left_par
+         touch_result≔pose_trans(touch_result,p[-(Touch_dis)/1000,0,0,0,0,0])
+       Else
+         touch_result≔pose_trans(touch_result,p[(Touch_dis)/1000,0,0,0,0,0])
+       A_Touch_p[A_sel_v]=touch_result
+       If EXT_flag1[3]≟ True 
+         MoveL
+           manual_tp≔tilt_2f_fun(touch_result,basic_tilt_2f,wv_direction)
+           manual_tp≔pose_trans(manual_tp, p[0,0,-10/1000,0,0,0])
+           manual_tp
+           Wait: 1.5
+   MoveandTouchFun_3f
+     b_touch_pos≔A_Prepos_l[A_sel_v]
+     tilt_deg_ry≔0
+     tilt_deg_rz≔0
+     If b2_left_par
+       tilt_deg≔6
+       b_touch_pos≔pose_trans(b_touch_pos, p[0,0/1000,0,d2r(tilt_deg),d2r(tilt_deg_ry),d2r(tilt_deg_rz)])
+     Else
+       tilt_deg≔0.5
+       b_touch_pos≔pose_trans(b_touch_pos, p[0,0/1000,0,d2r(-tilt_deg),d2r(tilt_deg_ry),d2r(tilt_deg_rz)])
+     'old'
+     move_pre
+       If (b2_left_par≟ True  and point_dist(A_Prepos_l[A_HOR], A_Prepos_l[A_VL1])>0.032) or (b2_left_par≟ False  and point_dist(A_Prepos_l[A_HOR_R],A_Prepos_l[A_VR1])>0.032)
+         if move from home
+           j_cp≔get_actual_joint_positions()
+           If b2_left_par
+             If norm(b_touch_pos[1]*1000)>300
+               inner_p≔p[-15/1000,-35/1000,0,0,0,0]
+             Else
+               inner_p≔p[0,0,0,0,0,0]
+             j_tp≔get_inverse_kin(pose_add(b_touch_pos,inner_p),qnear=left_j)
+           Else
+             If norm(b_touch_pos[1]*1000)>300
+               inner_p≔p[-15/1000,35/1000,0,0,0,0]
+             Else
+               inner_p≔p[0,0,0,0,0,0]
+             j_tp≔get_inverse_kin(pose_add(b_touch_pos,inner_p),qnear=right_j)
+           j_cp[0]=j_tp[0]
+           j_cp[1]=j_cp[1]+(j_tp[1]-j_cp[1])/2
+           j_cp[2]=j_cp[2]+(j_tp[2]-j_cp[2])/2.5
+           j_cp[3]=j_cp[3]+(j_tp[3]-j_cp[3])/2.5
+           j_cp[4]=j_cp[4]+(j_tp[4]-j_cp[4])/3
+           j_cp[5]=j_cp[5]+(j_tp[5]-j_cp[5])/1
+           MoveJ
+             j_cp
+           j_tp≔[j_cp[0],j_cp[1],j_cp[2],j_cp[3],j_tp[4],j_tp[5]]
+           'MoveJ'
+     MoveL
+       b_touch_pos
+     'MoveL'
+     touch_3f_down
+       'touch_result≔touch_fun2(b_touch_pos,b2_left_par,b9_touch_sens)'
+       touch_result≔touch_fun2(b_touch_pos,b2_left_par,b9_touch_sens,b2_par_cd)
+       If Scallup_check≟ False 
+         touch_result≔pose_trans(touch_result,p[-(Touch_dis)/1000,0,0,0,0,0])
+       Else
+         Scallup_check≔ False 
+       'touch_result≔pose_trans(touch_fun2(b_touch_pos,b2_left_par,b9_touch_sens),p[(-Touch_dis)/1000,0,0,0,0,0])'
+       'touch_result≔pose_add(touch_fun2(b_touch_pos,b2_left_par,b9_touch_sens),p[0,0,(-Touch_dis)/1000,0,0,0])'
+       A_Touch_p[A_sel_v]=touch_result
+       If EXT_flag1[3]≟ True 
+         MoveL
+           manual_tp≔tilt_3f_fun(A_Touch_p[A_sel_v],basic_tilt_3f,0)
+           manual_tp≔pose_trans(manual_tp, p[0,0,-10/1000,0,0,0])
+           manual_tp
+           Wait: 1.5
+     touch_3f_up
+       If A_Prepos_l[A_sel_v_end]≟p[0,0,0,0,0,0]
+         A_Touch_p[A_sel_v_end]=p[0,0,0,0,0,0]
+       Else
+         b_touch_pos≔A_Prepos_l[A_sel_v_end]
+         MoveL
+           b_touch_pos
+         touch_result≔touch_fun2(b_touch_pos,b2_left_par,b9_touch_sens)
+         A_Touch_p[A_sel_v_end]=touch_result
+         If EXT_flag1[3]≟ True 
+           MoveL
+             manual_tp≔A_Touch_p[A_sel_v_end]
+             manual_tp≔tilt_3f_fun(A_Touch_p[A_sel_v_end],basic_tilt_3f,0)
+             manual_tp≔pose_trans(manual_tp, p[0,0,-10/1000,0,0,0])
+             manual_tp
+             Wait: 1.5
+     'If b2_left_par≟ False '
+   weav_welding_3f
+     If running_trig≟ True 
+       inv_inching(inv_inch_time)
+       b_touch_pos≔A_Prepos_l[A_sel_v]
+       move_pre
+         If (b2_left_par≟ True  and point_dist(A_Prepos_l[A_HOR], A_Prepos_l[A_VL1])>0.032) or (b2_left_par≟ False  and point_dist(A_Prepos_l[A_HOR_R],A_Prepos_l[A_VR1])>0.032)
+           if move from home
+             j_cp≔get_actual_joint_positions()
+             If b2_left_par
+               If norm(b_touch_pos[1]*1000)>300
+                 inner_p≔p[-15/1000,-35/1000,0,0,0,0]
+               Else
+                 inner_p≔p[0,0,0,0,0,0]
+               j_tp≔get_inverse_kin(pose_add(b_touch_pos,inner_p),qnear=left_j)
+             Else
+               If norm(b_touch_pos[1]*1000)>300
+                 inner_p≔p[-15/1000,35/1000,0,0,0,0]
+               Else
+                 inner_p≔p[0,0,0,0,0,0]
+               j_tp≔get_inverse_kin(pose_add(b_touch_pos,inner_p),qnear=right_j)
+             j_cp[0]=j_tp[0]
+             j_cp[1]=j_cp[1]+(j_tp[1]-j_cp[1])/2
+             j_cp[2]=j_cp[2]+(j_tp[2]-j_cp[2])/2.5
+             j_cp[3]=j_cp[3]+(j_tp[3]-j_cp[3])/2.5
+             j_cp[4]=j_cp[4]+(j_tp[4]-j_cp[4])/3
+             j_cp[5]=j_cp[5]+(j_tp[5]-j_cp[5])/1
+             MoveJ
+               j_cp
+             j_tp≔[j_cp[0],j_cp[1],j_cp[2],j_cp[3],j_tp[4],j_tp[5]]
+             'MoveJ'
+       If (b2_left_par≟ True ) and (b1_cell_info_L≟A or b1_cell_info_L≟C or b1_cell_info_L≟c) and (A_sel_v≠A_VL2)
+         begin_3f_p≔pose_trans(A_Touch_p[A_sel_v],p[(multi_offset_z*(multi_path-1))/1000,0,0,0,0,0])
+       ElseIf (b2_left_par≟ False ) and (b1_cell_info_R≟A or b1_cell_info_R≟C or b1_cell_info_R≟c) and (A_sel_v≠A_VR2)
+         begin_3f_p≔pose_trans(A_Touch_p[A_sel_v],p[(multi_offset_z*(multi_path-1))/1000,0,0,0,0,0])
+       Else
+         begin_3f_p≔A_Touch_p[A_sel_v]
+       If b2_left_par≟ False 
+         If (b1_cell_info_R≟c or b1_cell_info_R≟d) and A_sel_v≟A_VR2
+           'begin_3f_p=pose_trans(begin_3f_p,p[0,0,0,d2r(-31),d2r(-27),0])'
+           b7_tilt_degree≔[-72,-20,15]
+           begin_3f_p=pose_add(begin_3f_p,p[-6/1000,-1.5/1000,0,0,0,0])
+           a2_speed_cpm≔a2_speed_cpm*1
+           a3_wv_amplitude≔a3_wv_amplitude*1
+           a4_wv_frequency≔a4_wv_frequency*1
+           b3_dealy_all≔[0,b4_wv_delay2*1,0,b6_wv_delay4*1]
+           a0_volt_ref≔a0_volt_ref*1
+           a1_amp_ref≔a1_amp_ref*1
+           volt and current
+             squash_l≔[a0_volt_ref,a1_amp_ref,squash_enable,squash_voltage,squash_current,squash_amp,squash_speed,squash_cycle,waste_cycle,c0_offset_x,c0_offset_z]
+             set_current_voltage(a1_amp_ref,a0_volt_ref)
+           'arc_sen'
+       welding_result = line_weaving_tp(begin_3f_p,A_Touch_p[A_sel_v_end],[a8_wv_distance,Circle_Speed,b1_appro_param,a4_wv_frequency,a3_wv_amplitude,b8_wv_type,wv_direction],b7_tilt_degree,b3_dealy_all,a9_wv_weldingon,c3_wv_arc,c7_wv_gap,a5_f_hole,b8_wv_2f,a7_weld_crater,squash_l)
+     write_port_register(weld_done_137,1)
+     homeing()
+     If sludge≟1
+       pause_trig≔ True 
+   weav_welding_2f
+     If running_trig≟ True 
+       Calculation
+         If Auto_W_num[Auto_cur_cell]≟31 or Auto_W_num[Auto_cur_cell]≟32 or Auto_W_num[Auto_cur_cell]≟30
+           cal_single
+             pos_m_path≔A_Touch_p[A_HOR]
+             pos_m_path_end≔A_Touch_p[A_HOR_R]
+             A_middle_weld≔interpolate_pose(pos_m_path, pos_m_path_end,0.5)
+         Else
+           side_offset≔10*current_path
+           side_offset≔0
+           If current_path≟2 or current_path≟4
+             center_offset≔15
+           Else
+             center_offset≔0
+           cal_multi
+             pos_m_path≔A_Touch_p[A_HOR]
+             pos_m_path≔pose_trans(pos_m_path, p[side_offset/1000,0,0,0,0,0])
+             pos_m_path_end≔A_Touch_p[A_HOR_R]
+             pos_m_path_end≔pose_trans(pos_m_path_end, p[-side_offset/1000,0,0,0,0,0])
+             A_middle_weld≔interpolate_pose(pos_m_path, pos_m_path_end,0.5)
+             A_middle_weld≔pose_trans(A_middle_weld, p[-center_offset/1000,0,0,0,0,0])
+         gap_half
+           gap_amp_bak≔c5_wv_gap_y
+           gap_speed_bak≔c6_wv_gap_cpm
+           gap_freq_bak≔c9_wv_gap_freq
+           c5_wv_gap_y≔(a3_wv_amplitude+c5_wv_gap_y)/2
+           c6_wv_gap_cpm≔(a2_speed_cpm+c6_wv_gap_cpm)/2
+           c9_wv_gap_freq≔(a4_wv_frequency+c9_wv_gap_freq)/2
+           c7_wv_gap≔[c4_gap_enable,c5_wv_gap_y,c6_wv_gap_cpm,c9_wv_gap_freq]
+       Weaving
+         If EXT_flag1[6]
+           If Auto_W_num[Auto_cur_cell]%10≟1
+             inv_inching(inv_inch_time)
+             wv_direction≔1
+             welding_result = line_weaving_tp(pos_m_path,A_middle_weld,[a8_wv_distance,Circle_Speed,b1_appro_param,a4_wv_frequency,a3_wv_amplitude,b8_wv_type,wv_direction],b7_tilt_degree,b3_dealy_all,a9_wv_weldingon,c3_wv_arc,c7_wv_gap,a5_f_hole,b8_wv_2f,a7_weld_crater,squash_l)
+             Wait: 0.5
+           If Auto_W_num[Auto_cur_cell]%10≟2
+             inv_inching(inv_inch_time)
+             a7_weld_crater≔[d_start_current,d_start_voltage,d_start_time,d_end_current_2,d_end_voltage_2,d_end_time_2,d_lean_degree]
+             gap_half_right
+               a3_wv_amplitude≔gap_amp_bak
+               a2_speed_cpm≔gap_speed_bak
+               a4_wv_frequency≔gap_freq_bak
+               c7_wv_gap≔[c4_gap_enable,c5_wv_gap_y,c6_wv_gap_cpm,c9_wv_gap_freq]
+             wv_direction≔-1
+             A_middle_weld≔feature_offset(A_middle_weld,p[-20/1000,0,0,0,0,0],A_Touch_p[A_sel_v])
+             welding_result = line_weaving_tp(pos_m_path_end,A_middle_weld,[a8_wv_distance,Circle_Speed,b1_appro_param,a4_wv_frequency,a3_wv_amplitude,b8_wv_type,wv_direction],b7_tilt_degree,b3_dealy_all,a9_wv_weldingon,c3_wv_arc,c7_wv_gap,a5_f_hole,b8_wv_2f,a7_weld_crater,squash_l)
+             'welding_result = line_weaving_tp(pos_m_path_end,A_middle_weld,[a8_wv_distance,Circle_Speed,b1_appro_param,a4_wv_frequency,a3_wv_amplitude,b8_wv_type,wv_direction],b7_tilt_degree,b3_dealy_all,a9_wv_weldingon,c3_wv_arc,c7_wv_gap,a5_f_hole,b8_wv_2f,a7_weld_crater,squash_l,[0,-1],pos_m_path)'
+         Else
+           If Auto_W_num[Auto_cur_cell]%10≟0
+             inv_inching(inv_inch_time)
+             wv_direction≔1
+             welding_result = line_weaving_tp(pos_m_path,pos_m_path_end,[a8_wv_distance,Circle_Speed,b1_appro_param,a4_wv_frequency,a3_wv_amplitude,b8_wv_type,wv_direction],b7_tilt_degree,b3_dealy_all,a9_wv_weldingon,c3_wv_arc,c7_wv_gap,a5_f_hole,b8_wv_2f,a7_weld_crater,squash_l)
+           Else
+             write_port_register(142,142)
+             Halt
+     write_port_register(weld_done_137,1)
+     MoveL
+       Direction: Tool Z-
+         Until (distance)
+     homeing()
+     If sludge≟1 or (sludge≟2 and current_path>1)
+       If  not (Auto_W_num[Auto_cur_cell]%10≟1)
+         pause_trig≔ True 
+   weav_welding_2f_CD
+     If running_trig≟ True 
+       CD_calculation
+         If (Auto_W_num[Auto_cur_cell]≥100 and Auto_W_num[Auto_cur_cell]<106)  or (Auto_W_num[Auto_cur_cell]≥150 and Auto_W_num[Auto_cur_cell]<156)
+           cal single
+             cal_1
+               pos_m_path_cd≔A_Touch_p[A_sel_v]
+               pos_m_p_end_cd≔A_Touch_p[A_sel_v_end]
+             cal_2
+               pos_m_path≔A_Touch_p[A_sel_v2]
+               pos_m_path_end≔A_Touch_p[A_sel_v_end2]
+               A_middle_weld≔interpolate_pose(pos_m_path, pos_m_path_end,0.5)
+         Else
+           cal multi
+             side_offset≔0
+             If current_path≟2 or current_path≟4
+               center_offset≔15
+             Else
+               center_offset≔0
+             cal_1_multi
+               pos_m_path_cd≔A_Touch_p[A_sel_v]
+               pos_m_path_cd≔pose_trans(pos_m_path_cd, p[side_offset/1000,0,0,0,0,0])
+               pos_m_p_end_cd≔A_Touch_p[A_sel_v_end]
+               pos_m_p_end_cd≔pose_trans(pos_m_p_end_cd, p[-side_offset/1000,0,0,0,0,0])
+             cal_2_multi
+               pos_m_path≔A_Touch_p[A_sel_v2]
+               pos_m_path≔pose_trans(pos_m_path, p[side_offset/1000,0,0,0,0,0])
+               pos_m_path_end≔A_Touch_p[A_sel_v_end2]
+               pos_m_path_end≔pose_trans(pos_m_path_end, p[-side_offset/1000,0,0,0,0,0])
+               A_middle_weld≔interpolate_pose(pos_m_path, pos_m_path_end,0.5)
+               A_middle_weld≔pose_trans(A_middle_weld, p[center_offset*wv_direction/1000,0,0,0,0,0])
+       gap_half
+         gap_amp_bak≔c5_wv_gap_y
+         gap_speed_bak≔c6_wv_gap_cpm
+         gap_freq_bak≔c9_wv_gap_freq
+         c5_wv_gap_y≔(a3_wv_amplitude+c5_wv_gap_y)/2
+         c6_wv_gap_cpm≔(a2_speed_cpm+c6_wv_gap_cpm)/2
+         c9_wv_gap_freq≔(a4_wv_frequency+c9_wv_gap_freq)/2
+         c7_wv_gap≔[c4_gap_enable,c5_wv_gap_y,c6_wv_gap_cpm,c9_wv_gap_freq]
+       If EXT_flag1[4]≟ True  and (b1_cell_info_L≠c and b1_cell_info_L≠d and b1_cell_info_R≠c and b1_cell_info_R≠d)
+         If EXT_flag1[6]
+           If Auto_W_num[Auto_cur_cell]%10≟1
+             inv_inching(inv_inch_time)
+             welding_result = line_weaving_tp_l(pos_m_path_cd,[pos_m_p_end_cd,pos_m_path,A_middle_weld],[a8_wv_distance,Circle_Speed,b1_appro_param,a4_wv_frequency,a3_wv_amplitude,b8_wv_type,wv_direction],b7_tilt_degree,b3_dealy_all,a9_wv_weldingon,c3_wv_arc,c7_wv_gap,a5_f_hole,b8_wv_2f,a7_weld_crater,squash_l)
+           If Auto_W_num[Auto_cur_cell]%10≟4
+             inv_inching(inv_inch_time)
+             a7_weld_crater≔[d_start_current,d_start_voltage,d_start_time,d_end_current_2,d_end_voltage_2,d_end_time_2,d_lean_degree]
+             gap_half
+               a3_wv_amplitude≔gap_amp_bak
+               a2_speed_cpm≔gap_speed_bak
+               a4_wv_frequency≔gap_freq_bak
+               c7_wv_gap≔[c4_gap_enable,c5_wv_gap_y,c6_wv_gap_cpm,c9_wv_gap_freq]
+             wv_direction≔-1*wv_direction
+             A_middle_weld≔feature_offset(A_middle_weld,p[20*wv_direction/1000,0,0,0,0,0],A_Touch_p[A_sel_v2])
+             welding_result = line_weaving_tp(pos_m_path_end,A_middle_weld,[a8_wv_distance,Circle_Speed,b1_appro_param,a4_wv_frequency,a3_wv_amplitude,b8_wv_type,wv_direction],b7_tilt_degree,b3_dealy_all,a9_wv_weldingon,c3_wv_arc,c7_wv_gap,a5_f_hole,b8_wv_2f,a7_weld_crater,squash_l)
+         Else
+           If Auto_W_num[Auto_cur_cell]%10≟0
+             inv_inching(inv_inch_time)
+             welding_result = line_weaving_tp_l(pos_m_path_cd,[pos_m_p_end_cd,pos_m_path,pos_m_path_end],[a8_wv_distance,Circle_Speed,b1_appro_param,a4_wv_frequency,a3_wv_amplitude,b8_wv_type,wv_direction],b7_tilt_degree,b3_dealy_all,a9_wv_weldingon,c3_wv_arc,c7_wv_gap,a5_f_hole,b8_wv_2f,a7_weld_crater,squash_l)
+           Else
+             write_port_register(142,142)
+             Halt
+       Else
+         If EXT_flag1[6]
+           If Auto_W_num[Auto_cur_cell]%10≟2
+             inv_inching(inv_inch_time)
+             gap_half
+               gap_amp_bak≔c5_wv_gap_y
+               gap_speed_bak≔c6_wv_gap_cpm
+               gap_freq_bak≔c9_wv_gap_freq
+               c5_wv_gap_y≔(a3_wv_amplitude+c5_wv_gap_y)/2
+               c6_wv_gap_cpm≔(a2_speed_cpm+c6_wv_gap_cpm)/2
+               c9_wv_gap_freq≔(a4_wv_frequency+c9_wv_gap_freq)/2
+               c7_wv_gap≔[c4_gap_enable,c5_wv_gap_y,c6_wv_gap_cpm,c9_wv_gap_freq]
+             welding_result = line_weaving_tp(pos_m_path_cd,pos_m_p_end_cd,[a8_wv_distance,Circle_Speed,b1_appro_param,a4_wv_frequency,a3_wv_amplitude,b8_wv_type,wv_direction],b7_tilt_degree,b3_dealy_all,a9_wv_weldingon,c3_wv_arc,c7_wv_gap,a5_f_hole,b8_wv_2f,a7_weld_crater,squash_l)
+             Wait: 0.5
+           If Auto_W_num[Auto_cur_cell]%10≟3
+             inv_inching(inv_inch_time)
+             welding_result = line_weaving_tp(pos_m_path,A_middle_weld,[a8_wv_distance,Circle_Speed,b1_appro_param,a4_wv_frequency,a3_wv_amplitude,b8_wv_type,wv_direction],b7_tilt_degree,b3_dealy_all,a9_wv_weldingon,c3_wv_arc,c7_wv_gap,a5_f_hole,b8_wv_2f,a7_weld_crater,squash_l)
+             Wait: 0.5
+           If Auto_W_num[Auto_cur_cell]%10≟4
+             inv_inching(inv_inch_time)
+             a7_weld_crater≔[d_start_current,d_start_voltage,d_start_time,d_end_current_2,d_end_voltage_2,d_end_time_2,d_lean_degree]
+             gap_half
+               a3_wv_amplitude≔gap_amp_bak
+               a2_speed_cpm≔gap_speed_bak
+               a4_wv_frequency≔gap_freq_bak
+               c7_wv_gap≔[c4_gap_enable,c5_wv_gap_y,c6_wv_gap_cpm,c9_wv_gap_freq]
+             wv_direction≔-1*wv_direction
+             A_middle_weld≔feature_offset(A_middle_weld,p[20*wv_direction/1000,0,0,0,0,0],A_Touch_p[A_sel_v2])
+             welding_result = line_weaving_tp(pos_m_path_end,A_middle_weld,[a8_wv_distance,Circle_Speed,b1_appro_param,a4_wv_frequency,a3_wv_amplitude,b8_wv_type,wv_direction],b7_tilt_degree,b3_dealy_all,a9_wv_weldingon,c3_wv_arc,c7_wv_gap,a5_f_hole,b8_wv_2f,a7_weld_crater,squash_l)
+         Else
+           If Auto_W_num[Auto_cur_cell]%10≟2
+             inv_inching(inv_inch_time)
+             c7_wv_gap≔[0,c5_wv_gap_y,c6_wv_gap_cpm,c9_wv_gap_freq]
+             welding_result = line_weaving_tp(pos_m_path_cd,pos_m_p_end_cd,[a8_wv_distance,Circle_Speed,b1_appro_param,a4_wv_frequency,a3_wv_amplitude,b8_wv_type,wv_direction],b7_tilt_degree,b3_dealy_all,a9_wv_weldingon,c3_wv_arc,c7_wv_gap,a5_f_hole,b8_wv_2f,a7_weld_crater,squash_l)
+             Wait: 0.5
+           If Auto_W_num[Auto_cur_cell]%10≟5
+             inv_inching(inv_inch_time)
+             c7_wv_gap≔[c4_gap_enable,c5_wv_gap_y,c6_wv_gap_cpm,c9_wv_gap_freq]
+             welding_result = line_weaving_tp(pos_m_path,pos_m_path_end,[a8_wv_distance,Circle_Speed,b1_appro_param,a4_wv_frequency,a3_wv_amplitude,b8_wv_type,wv_direction],b7_tilt_degree,b3_dealy_all,a9_wv_weldingon,c3_wv_arc,c7_wv_gap,a5_f_hole,b8_wv_2f,a7_weld_crater,squash_l)
+             Wait: 0.5
+     write_port_register(weld_done_137,1)
+     'MoveL'
+     wv_direction≔1
+     MoveL
+       Direction: Tool Z-
+         Until (distance)
+     homeing()
+     If sludge≟1 or (sludge≟2 and current_path>1)
+       If  not (Auto_W_num[Auto_cur_cell]%10≟1 or Auto_W_num[Auto_cur_cell]%10≟2 or Auto_W_num[Auto_cur_cell]%10≟3)
+         pause_trig≔ True 
+   reset_weld_param
+     start_num≔225
+     Loop start_num<237
+       write_port_register(start_num,0)
+       start_num≔start_num+1
+     start_num≔240
+     Loop start_num<256
+       write_port_register(start_num,0)
+       start_num≔start_num+1
+   touch_sub
+     freedrive
+       save_timer: Start
+       Loop save_tool≟ False  and save_timer≤0.5
+         If save_tool≟ False 
+           save_timer≔0
+         If freedrive≟ True  and freedrive_trg≟ False 
+           'Manual - Freedrive'
+           freedrive_mode()
+           freedrive_trg≔ True 
+         ElseIf freedrive≟ False  and freedrive_trg≟ True 
+           end_freedrive_mode()
+           freedrive_trg≔ False 
+         If lamp_trig≟ False 
+           lamp_trig≔ True 
+         sync()
+       save_timer: Stop
+       save_timer: Reset
+       write_port_register(touch_done_157,1)
+       Wait read_port_register(touch_done_157)≟0
+       Wait save_tool=LO
